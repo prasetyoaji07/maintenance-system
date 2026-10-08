@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const mesinRouter = require("./routes/mesin");
+const usersRouter = require("./routes/users");
 const tiketRouter = require("./routes/tiket");
 const dashboardRouter = require("./routes/dashboard");
 
@@ -15,6 +16,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/mesin", mesinRouter);
+app.use("/users", usersRouter);
 app.use("/tiket", tiketRouter);
 app.use("/dashboard", dashboardRouter);
 
