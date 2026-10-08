@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const mesinRouter = require("./routes/mesin");
-const tiketRouter = require("./routes/tiket");
+const dashboardRouter = require("./routes/dashboard");
 
 const app = express();
 app.use(cors());
@@ -14,7 +14,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/mesin", mesinRouter);
-app.use("/tiket", tiketRouter);
+app.use("/dashboard", dashboardRouter);
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
