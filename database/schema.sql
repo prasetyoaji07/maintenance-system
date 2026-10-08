@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS tiket_part (
   tiket_id INT NOT NULL,
   part_id INT NOT NULL,
   qty_dipakai INT NOT NULL,
+  status ENUM('menunggu_approval','disetujui','dipakai') NOT NULL DEFAULT 'dipakai',
   PRIMARY KEY (id),
   KEY tiket_id (tiket_id),
   CONSTRAINT tiket_part_tiket_fk FOREIGN KEY (tiket_id) REFERENCES tiket_kerusakan (id) ON DELETE CASCADE,
