@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+const mesinRouter = require("./routes/mesin");
+const tiketRouter = require("./routes/tiket");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -9,6 +12,9 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send("Server Maintenance jalan!");
 });
+
+app.use("/mesin", mesinRouter);
+app.use("/tiket", tiketRouter);
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
