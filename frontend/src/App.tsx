@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ambil } from './api'
+import LaporKerusakan from './pages/LaporKerusakan'
 import type { Role, User } from './types'
 
 const MENU: Record<Role, string[]> = {
@@ -84,7 +85,10 @@ function App() {
             Gagal memuat user: {error}
           </p>
         )}
-        {user && (
+        {user && halaman === 'Lapor Kerusakan' && (
+          <LaporKerusakan key={user.id} user={user} />
+        )}
+        {user && halaman !== 'Lapor Kerusakan' && (
           <div className="rounded-xl bg-white p-6 shadow">
             <h2 className="text-lg font-semibold text-slate-800">{halaman}</h2>
             <p className="mt-2 text-slate-600">

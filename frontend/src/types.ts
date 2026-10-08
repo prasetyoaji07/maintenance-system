@@ -5,3 +5,10 @@ export interface User {
   nama: string
   role: Role
 }
+
+export interface Mesin {
+  id: number
+  nama: string
+  lokasi: string
+  status: 'jalan' | 'rusak' | 'maintenance'
+}
