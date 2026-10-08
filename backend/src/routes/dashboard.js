@@ -51,7 +51,12 @@ router.get("/part-terpakai", async (req, res) => {
        GROUP BY sp.id, sp.nama, sp.satuan
        ORDER BY total_qty_dipakai DESC`
     );
-    res.json(rows);
+    res.json(
+      rows.map((r) => ({
+        ...r,
+        total_qty_dipakai: Number(r.total_qty_dipakai),
+      }))
+    );
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Gagal mengambil data part terpakai" });
