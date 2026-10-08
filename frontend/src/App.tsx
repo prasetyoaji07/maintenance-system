@@ -1,13 +1,98 @@
+import { useEffect, useState } from 'react'
+import { ambil } from './api'
+import type { Role, User } from './types'
+
+const MENU: Record<Role, string[]> = {
+  operator: ['Lapor Kerusakan'],
+  teknisi: ['Tiket Saya'],
+  supervisor: ['Approval', 'Dashboard'],
+}
+
 function App() {
+  const [users, setUsers] = useState<User[]>([])
+  const [userId, setUserId] = useState<number | null>(null)
+  const [halaman, setHalaman] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    ambil<User[]>('/users')
+      .then((data) => {
+        setUsers(data)
+        if (data.length > 0) {
+          setUserId(data[0].id)
+          setHalaman(MENU[data[0].role][0])
+        }
+      })
+      .catch((e: Error) => setError(e.message))
+  }, [])
+
+  const user = users.find((u) => u.id === userId) ?? null
+
+  function gantiUser(id: number) {
+    const baru = users.find((u) => u.id === id)
+    if (!baru) return
+    setUserId(id)
+    setHalaman(MENU[baru.role][0])
+  }
+
   return (
-    <div className="min-h-screen bg-slate-100 p-8">
-      <h1 className="text-3xl font-bold text-blue-700">
-        Sistem Maintenance dan Spare Part
-      </h1>
-      <p className="mt-2 text-slate-600">Tailwind sudah aktif.</p>
-      <button className="mt-4 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700">
-        Tombol tes
-      </button>
+    <div className="min-h-screen bg-slate-100">
+      <header className="bg-white shadow">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+          <h1 className="text-xl font-bold text-blue-700">
+            Sistem Maintenance dan Spare Part
+          </h1>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            Login sebagai:
+            <select
+              className="rounded-lg border border-slate-300 px-3 py-1.5"
+              value={userId ?? ''}
+              onChange={(e) => gantiUser(Number(e.target.value))}
+            >
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nama} ({u.role})
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {user && (
+          <nav className="mx-auto flex max-w-5xl gap-2 px-6 pb-3">
+            {MENU[user.role].map((m) => (
+              <button
+                key={m}
+                onClick={() => setHalaman(m)}
+                className={
+                  'rounded-lg px-4 py-2 text-sm font-semibold ' +
+                  (halaman === m
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300')
+                }
+              >
+                {m}
+              </button>
+            ))}
+          </nav>
+        )}
+      </header>
+
+      <main className="mx-auto max-w-5xl p-6">
+        {error && (
+          <p className="rounded-lg bg-red-100 p-4 text-red-700">
+            Gagal memuat user: {error}
+          </p>
+        )}
+        {user && (
+          <div className="rounded-xl bg-white p-6 shadow">
+            <h2 className="text-lg font-semibold text-slate-800">{halaman}</h2>
+            <p className="mt-2 text-slate-600">
+              Halaman ini belum dibuat. Login sebagai {user.nama} ({user.role}).
+            </p>
+          </div>
+        )}
+      </main>
     </div>
   )
 }
