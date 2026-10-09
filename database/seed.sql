@@ -1,7 +1,7 @@
 INSERT INTO users (nama, role) VALUES
-  ('Andi', 'operator'),
-  ('Budi', 'teknisi'),
-  ('Citra', 'supervisor');
+  ('Yamal', 'operator'),
+  ('Raphinha', 'teknisi'),
+  ('Flick', 'supervisor');
 
 INSERT INTO mesin (nama, lokasi) VALUES
   ('Compressor A1', 'Line 1'),
