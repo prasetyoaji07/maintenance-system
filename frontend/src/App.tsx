@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ambil } from './api'
 import LaporKerusakan from './pages/LaporKerusakan'
+import TiketSaya from './pages/TiketSaya'
 import type { Role, User } from './types'
 
 const MENU: Record<Role, string[]> = {
@@ -88,7 +89,10 @@ function App() {
         {user && halaman === 'Lapor Kerusakan' && (
           <LaporKerusakan key={user.id} user={user} />
         )}
-        {user && halaman !== 'Lapor Kerusakan' && (
+        {user && halaman === 'Tiket Saya' && (
+          <TiketSaya key={user.id} user={user} />
+        )}
+        {user && halaman !== 'Lapor Kerusakan' && halaman !== 'Tiket Saya' && (
           <div className="rounded-xl bg-white p-6 shadow">
             <h2 className="text-lg font-semibold text-slate-800">{halaman}</h2>
             <p className="mt-2 text-slate-600">
