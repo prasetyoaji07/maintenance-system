@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ambil, kirim } from '../api'
 import type { SparePart, StatusTiket, Tiket, TiketDetail, User } from '../types'
 
@@ -12,6 +12,8 @@ const WARNA: Record<StatusTiket, string> = {
   menunggu_approval: 'bg-orange-100 text-orange-800',
   selesai: 'bg-green-100 text-green-800',
 }
+
+const INTERVAL_MS = 8000
 
 function waktu(iso: string | null): string {
   if (!iso) return '-'
@@ -27,6 +29,23 @@ function waktu(iso: string | null): string {
   )
 }
 
+// Beep 3x lewat Web Audio API (tanpa file suara).
+function bunyi(ctx: AudioContext | null) {
+  if (!ctx) return
+  for (let i = 0; i < 3; i++) {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.value = 880
+    gain.gain.value = 0.15
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    const mulai = ctx.currentTime + i * 0.4
+    osc.start(mulai)
+    osc.stop(mulai + 0.25)
+  }
+}
+
 function TiketSaya({ user }: Props) {
   const [tiket, setTiket] = useState<TiketDetail[]>([])
   const [parts, setParts] = useState<SparePart[]>([])
@@ -35,33 +54,83 @@ function TiketSaya({ user }: Props) {
   const [info, setInfo] = useState('')
   const [error, setError] = useState('')
   const [sibuk, setSibuk] = useState(false)
+  const [aktif, setAktif] = useState(false)
+  const [bannerBaru, setBannerBaru] = useState('')
 
-  const muat = useCallback(async () => {
-    try {
-      const [daftar, sp] = await Promise.all([
-        ambil<Tiket[]>('/tiket?status=aktif'),
-        ambil<SparePart[]>('/spare-parts'),
-      ])
-      const relevan = daftar.filter(
-        (t) => t.status === 'pending' || t.teknisi_id === user.id
-      )
-      const detail = await Promise.all(
-        relevan.map((t) =>
-          t.status === 'pending'
-            ? Promise.resolve({ ...t, parts: [] } as TiketDetail)
-            : ambil<TiketDetail>(`/tiket/${t.id}`)
+  const audioRef = useRef<AudioContext | null>(null)
+  const dikenal = useRef<Set<number> | null>(null)
+
+  const muat = useCallback(
+    async (diam = false) => {
+      try {
+        const [daftar, sp] = await Promise.all([
+          ambil<Tiket[]>('/tiket?status=aktif'),
+          ambil<SparePart[]>('/spare-parts'),
+        ])
+
+        // Deteksi tiket pending yang baru muncul
+        const pending = daftar.filter((t) => t.status === 'pending')
+        if (dikenal.current === null) {
+          dikenal.current = new Set(pending.map((t) => t.id))
+        } else {
+          const baru = pending.filter((t) => !dikenal.current!.has(t.id))
+          if (baru.length > 0) {
+            const teks = baru
+              .map((t) => `#${t.id} ${t.mesin}: ${t.keluhan}`)
+              .join(' | ')
+            setBannerBaru(`Tiket baru: ${teks}`)
+            bunyi(audioRef.current)
+            if (
+              typeof Notification !== 'undefined' &&
+              Notification.permission === 'granted'
+            ) {
+              new Notification('Tiket kerusakan baru', { body: teks })
+            }
+          }
+          dikenal.current = new Set(pending.map((t) => t.id))
+        }
+
+        const relevan = daftar.filter(
+          (t) => t.status === 'pending' || t.teknisi_id === user.id
         )
-      )
-      setTiket(detail)
-      setParts(sp)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal memuat tiket')
-    }
-  }, [user.id])
+        const detail = await Promise.all(
+          relevan.map((t) =>
+            t.status === 'pending'
+              ? Promise.resolve({ ...t, parts: [] } as TiketDetail)
+              : ambil<TiketDetail>(`/tiket/${t.id}`)
+          )
+        )
+        setTiket(detail)
+        setParts(sp)
+      } catch (e) {
+        if (!diam) {
+          setError(e instanceof Error ? e.message : 'Gagal memuat tiket')
+        }
+      }
+    },
+    [user.id]
+  )
 
   useEffect(() => {
     void muat()
+    const timer = setInterval(() => void muat(true), INTERVAL_MS)
+    return () => clearInterval(timer)
   }, [muat])
+
+  async function aktifkanNotifikasi() {
+    const Ctx = window.AudioContext
+    const ctx = new Ctx()
+    await ctx.resume()
+    audioRef.current = ctx
+    bunyi(ctx) // beep uji sekaligus membuka izin audio
+    if (
+      typeof Notification !== 'undefined' &&
+      Notification.permission === 'default'
+    ) {
+      await Notification.requestPermission()
+    }
+    setAktif(true)
+  }
 
   async function jalankan(aksi: () => Promise<string>) {
     setError('')
@@ -80,6 +149,7 @@ function TiketSaya({ user }: Props) {
   function terima(t: TiketDetail) {
     void jalankan(async () => {
       await kirim(`/tiket/${t.id}/terima`, 'PATCH', { teknisi_id: user.id })
+      setBannerBaru('')
       return `Tiket #${t.id} diterima.`
     })
   }
@@ -126,9 +196,35 @@ function TiketSaya({ user }: Props) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-800">
-        Tiket Saya ({user.nama})
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-slate-800">
+          Tiket Saya ({user.nama})
+        </h2>
+        {aktif ? (
+          <span className="rounded-lg bg-green-100 px-3 py-1.5 text-sm font-semibold text-green-800">
+            Notifikasi aktif (cek tiap {INTERVAL_MS / 1000} detik)
+          </span>
+        ) : (
+          <button
+            onClick={() => void aktifkanNotifikasi()}
+            className="rounded-lg bg-yellow-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-yellow-600"
+          >
+            Aktifkan Notifikasi
+          </button>
+        )}
+      </div>
+
+      {bannerBaru && (
+        <div className="flex items-start justify-between gap-3 rounded-lg bg-yellow-100 p-3 text-yellow-900">
+          <p className="font-semibold">{bannerBaru}</p>
+          <button
+            onClick={() => setBannerBaru('')}
+            className="text-sm font-semibold underline"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
 
       {info && (
         <p className="rounded-lg bg-green-100 p-3 text-green-800">{info}</p>
