@@ -8,6 +8,7 @@ interface Props {
 
 function LaporKerusakan({ user }: Props) {
   const [mesin, setMesin] = useState<Mesin[]>([])
+  const [line, setLine] = useState('')
   const [mesinId, setMesinId] = useState('')
   const [keluhan, setKeluhan] = useState('')
   const [sukses, setSukses] = useState('')
@@ -20,11 +21,19 @@ function LaporKerusakan({ user }: Props) {
       .catch((e: Error) => setError(e.message))
   }, [])
 
+  const daftarLine = Array.from(new Set(mesin.map((m) => m.lokasi))).sort()
+  const mesinDiLine = mesin.filter((m) => m.lokasi === line)
+
+  function gantiLine(nilai: string) {
+    setLine(nilai)
+    setMesinId('')
+  }
+
   async function kirimLaporan() {
     setSukses('')
     setError('')
-    if (!mesinId || !keluhan.trim()) {
-      setError('Pilih mesin dan isi keluhan dulu.')
+    if (!line || !mesinId || !keluhan.trim()) {
+      setError('Pilih line, mesin, dan isi keluhan dulu.')
       return
     }
     setMengirim(true)
@@ -35,6 +44,7 @@ function LaporKerusakan({ user }: Props) {
         keluhan,
       })
       setSukses(`Laporan terkirim. Nomor tiket: #${hasil.id}`)
+      setLine('')
       setMesinId('')
       setKeluhan('')
       setMesin(await ambil<Mesin[]>('/mesin'))
@@ -51,16 +61,35 @@ function LaporKerusakan({ user }: Props) {
       <p className="mt-1 text-sm text-slate-500">Pelapor: {user.nama}</p>
 
       <label className="mt-4 block text-sm font-medium text-slate-700">
-        Mesin
+        Line
         <select
           className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"
+          value={line}
+          onChange={(e) => gantiLine(e.target.value)}
+        >
+          <option value="">-- pilih line --</option>
+          {daftarLine.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="mt-4 block text-sm font-medium text-slate-700">
+        Mesin
+        <select
+          className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 disabled:bg-slate-100"
           value={mesinId}
           onChange={(e) => setMesinId(e.target.value)}
+          disabled={!line}
         >
-          <option value="">-- pilih mesin --</option>
-          {mesin.map((m) => (
+          <option value="">
+            {line ? '-- pilih mesin --' : 'Pilih line dulu'}
+          </option>
+          {mesinDiLine.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.nama} ({m.lokasi}) - {m.status}
+              {m.nama} - {m.status}
             </option>
           ))}
         </select>
