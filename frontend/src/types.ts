@@ -52,3 +52,27 @@ export interface PartTiket {
 export interface TiketDetail extends Tiket {
   parts: PartTiket[]
 }
+
+export interface PartRiwayat {
+  part: string
+  qty_dipakai: number
+  satuan: string
+}
+
+export interface TiketRiwayat {
+  id: number
+  keluhan: string
+  status: StatusTiket
+  operator: string
+  teknisi: string | null
+  created_at: string
+  diproses_at: string | null
+  selesai_at: string | null
+  downtime_menit: number | null
+  parts: PartRiwayat[]
+}
+
+export interface RiwayatMesin {
+  mesin: Mesin
+  tiket: TiketRiwayat[]
+}

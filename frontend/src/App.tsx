@@ -3,13 +3,14 @@ import { ambil } from './api'
 import Approval from './pages/Approval'
 import Dashboard from './pages/Dashboard'
 import LaporKerusakan from './pages/LaporKerusakan'
+import Riwayat from './pages/Riwayat'
 import TiketSaya from './pages/TiketSaya'
 import type { Role, User } from './types'
 
 const MENU: Record<Role, string[]> = {
   operator: ['Lapor Kerusakan'],
   teknisi: ['Tiket Saya'],
-  supervisor: ['Approval', 'Dashboard'],
+  supervisor: ['Approval', 'Dashboard', 'Riwayat'],
 }
 
 function App() {
@@ -98,6 +99,7 @@ function App() {
           <Approval key={user.id} user={user} />
         )}
         {user && halaman === 'Dashboard' && <Dashboard key={user.id} />}
+        {user && halaman === 'Riwayat' && <Riwayat key={user.id} />}
       </main>
     </div>
   )
