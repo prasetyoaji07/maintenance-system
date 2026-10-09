@@ -4,6 +4,7 @@ require("dotenv").config();
 
 const mesinRouter = require("./routes/mesin");
 const usersRouter = require("./routes/users");
+const sparePartsRouter = require("./routes/spareParts");
 const tiketRouter = require("./routes/tiket");
 const dashboardRouter = require("./routes/dashboard");
 
@@ -17,6 +18,7 @@ app.get("/", (req, res) => {
 
 app.use("/mesin", mesinRouter);
 app.use("/users", usersRouter);
+app.use("/spare-parts", sparePartsRouter);
 app.use("/tiket", tiketRouter);
 app.use("/dashboard", dashboardRouter);
 
