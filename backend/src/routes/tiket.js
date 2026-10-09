@@ -114,10 +114,12 @@ router.post("/", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     let sql = `SELECT t.id, t.mesin_id, m.nama AS mesin, t.keluhan, t.status,
-                      u.nama AS operator, t.created_at, t.diproses_at, t.selesai_at
+                      u.nama AS operator, t.teknisi_id, tk.nama AS teknisi,
+                      t.created_at, t.diproses_at, t.selesai_at
                FROM tiket_kerusakan t
                JOIN mesin m ON m.id = t.mesin_id
-               JOIN users u ON u.id = t.operator_id`;
+               JOIN users u ON u.id = t.operator_id
+               LEFT JOIN users tk ON tk.id = t.teknisi_id`;
     if (req.query.status === "aktif") sql += " WHERE t.status <> 'selesai'";
     sql += " ORDER BY t.created_at DESC, t.id DESC";
 
