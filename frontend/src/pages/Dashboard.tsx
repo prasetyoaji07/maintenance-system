@@ -48,6 +48,7 @@ const PILIHAN_PERIODE: { nilai: Periode; label: string }[] = [
 
 function Dashboard() {
   const [periode, setPeriode] = useState<Periode>('semua')
+  const [bulan, setBulan] = useState('')
   const [downtime, setDowntime] = useState<Downtime[]>([])
   const [part, setPart] = useState<PartTerpakai[]>([])
   const [mttr, setMttr] = useState<Mttr | null>(null)
@@ -57,7 +58,7 @@ function Dashboard() {
   const muat = useCallback(async () => {
     setError('')
     try {
-      const q = `?periode=${periode}`
+      const q = bulan ? `?bulan=${bulan}` : `?periode=${periode}`
       const [d, p, m, s] = await Promise.all([
         ambil<Downtime[]>(`/dashboard/downtime${q}`),
         ambil<PartTerpakai[]>(`/dashboard/part-terpakai${q}`),
@@ -71,7 +72,7 @@ function Dashboard() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat dashboard')
     }
-  }, [periode])
+ }, [periode, bulan])
 
   useEffect(() => {
     void muat()
@@ -90,10 +91,13 @@ function Dashboard() {
           {PILIHAN_PERIODE.map((p) => (
             <button
               key={p.nilai}
-              onClick={() => setPeriode(p.nilai)}
+                onClick={() => {
+                setPeriode(p.nilai)
+                setBulan('')
+              }}
               className={
                 'rounded-lg px-3 py-1.5 text-sm font-semibold ' +
-                (periode === p.nilai
+                (bulan === '' && periode === p.nilai
                   ? 'bg-blue-600 text-white'
                   : 'bg-slate-200 text-slate-700 hover:bg-slate-300')
               }
@@ -101,6 +105,16 @@ function Dashboard() {
               {p.label}
             </button>
           ))}
+                    <input
+            type="month"
+            value={bulan}
+            onChange={(e) => setBulan(e.target.value)}
+            className={
+              'rounded-lg border px-3 py-1.5 text-sm ' +
+              (bulan ? 'border-blue-600 bg-blue-50' : 'border-slate-300')
+            }
+            aria-label="Pilih bulan"
+          />
           <button
             onClick={() => void muat()}
             className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
