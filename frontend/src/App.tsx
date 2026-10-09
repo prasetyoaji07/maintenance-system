@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ambil } from './api'
+import Approval from './pages/Approval'
 import LaporKerusakan from './pages/LaporKerusakan'
 import TiketSaya from './pages/TiketSaya'
 import type { Role, User } from './types'
@@ -92,14 +93,23 @@ function App() {
         {user && halaman === 'Tiket Saya' && (
           <TiketSaya key={user.id} user={user} />
         )}
-        {user && halaman !== 'Lapor Kerusakan' && halaman !== 'Tiket Saya' && (
-          <div className="rounded-xl bg-white p-6 shadow">
-            <h2 className="text-lg font-semibold text-slate-800">{halaman}</h2>
-            <p className="mt-2 text-slate-600">
-              Halaman ini belum dibuat. Login sebagai {user.nama} ({user.role}).
-            </p>
-          </div>
+        {user && halaman === 'Approval' && (
+          <Approval key={user.id} user={user} />
         )}
+        {user &&
+          halaman !== 'Lapor Kerusakan' &&
+          halaman !== 'Tiket Saya' &&
+          halaman !== 'Approval' && (
+            <div className="rounded-xl bg-white p-6 shadow">
+              <h2 className="text-lg font-semibold text-slate-800">
+                {halaman}
+              </h2>
+              <p className="mt-2 text-slate-600">
+                Halaman ini belum dibuat. Login sebagai {user.nama} (
+                {user.role}).
+              </p>
+            </div>
+          )}
       </main>
     </div>
   )
