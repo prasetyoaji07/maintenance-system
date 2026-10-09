@@ -40,9 +40,9 @@ function bunyi(ctx: AudioContext | null) {
     gain.gain.value = 0.15
     osc.connect(gain)
     gain.connect(ctx.destination)
-    const mulai = ctx.currentTime + i * 0.4
+    const mulai = ctx.currentTime + i * 0.6
     osc.start(mulai)
-    osc.stop(mulai + 0.25)
+    osc.stop(mulai + 0.4)
   }
 }
 
