@@ -6,6 +6,15 @@ interface Props {
   user: User
 }
 
+interface RiwayatStok {
+  id: number
+  qty_tambah: number
+  stok_sebelum: number
+  stok_sesudah: number
+  created_at: string
+  supervisor_nama: string
+}
+
 function waktu(iso: string | null): string {
   if (!iso) return '-'
   return (
@@ -29,6 +38,14 @@ function Approval({ user }: Props) {
   const [error, setError] = useState('')
   const [sibuk, setSibuk] = useState(false)
 
+  const [riwayatPart, setRiwayatPart] = useState('')
+  const [riwayat, setRiwayat] = useState<RiwayatStok[]>([])
+  const [riwayatError, setRiwayatError] = useState('')
+  const [versi, setVersi] = useState(0)
+
+  // Kalau belum memilih, tampilkan riwayat part pertama
+  const idRiwayat = riwayatPart || (parts[0] ? String(parts[0].id) : '')
+
   const muat = useCallback(async () => {
     try {
       const [daftar, sp] = await Promise.all([
@@ -49,6 +66,32 @@ function Approval({ user }: Props) {
   useEffect(() => {
     void muat()
   }, [muat])
+
+  useEffect(() => {
+    if (!idRiwayat) return
+    let batal = false
+    async function muatRiwayat() {
+      try {
+        const data = await ambil<RiwayatStok[]>(
+          `/spare-parts/${idRiwayat}/riwayat`
+        )
+        if (!batal) {
+          setRiwayat(data)
+          setRiwayatError('')
+        }
+      } catch (e) {
+        if (!batal) {
+          setRiwayatError(
+            e instanceof Error ? e.message : 'Gagal memuat riwayat stok'
+          )
+        }
+      }
+    }
+    void muatRiwayat()
+    return () => {
+      batal = true
+    }
+  }, [idRiwayat, versi])
 
   async function jalankan(aksi: () => Promise<string>) {
     setError('')
@@ -92,6 +135,7 @@ function Approval({ user }: Props) {
       })
       setPilihPart('')
       setQty('')
+      setVersi((v) => v + 1)
       return `Stok ${hasil.nama}: ${hasil.stok_sebelum} menjadi ${hasil.stok_sekarang}.`
     })
   }
@@ -140,6 +184,66 @@ function Approval({ user }: Props) {
             Tambah Stok
           </button>
         </div>
+      </div>
+
+      <div className="rounded-xl bg-white p-6 shadow">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-semibold text-slate-800">
+            Riwayat Penambahan Stok
+          </h3>
+          <select
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            value={idRiwayat}
+            onChange={(e) => setRiwayatPart(e.target.value)}
+          >
+            {parts.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nama}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {riwayatError && (
+          <p className="mt-3 rounded-lg bg-red-100 p-3 text-sm text-red-700">
+            {riwayatError}
+          </p>
+        )}
+
+        {!riwayatError && riwayat.length === 0 && (
+          <p className="mt-3 text-sm text-slate-600">
+            Belum ada penambahan stok untuk part ini.
+          </p>
+        )}
+
+        {riwayat.length > 0 && (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-700">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500">
+                  <th className="py-2 pr-4 font-medium">Waktu</th>
+                  <th className="py-2 pr-4 font-medium">Supervisor</th>
+                  <th className="py-2 pr-4 font-medium">Tambah</th>
+                  <th className="py-2 font-medium">Stok</th>
+                </tr>
+              </thead>
+              <tbody>
+                {riwayat.map((r) => (
+                  <tr key={r.id} className="border-b border-slate-100">
+                    <td className="py-2 pr-4">{waktu(r.created_at)}</td>
+                    <td className="py-2 pr-4">{r.supervisor_nama}</td>
+                    <td className="py-2 pr-4 font-semibold text-green-700">
+                      +{r.qty_tambah}
+                    </td>
+                    <td className="py-2">
+                      {r.stok_sebelum} menjadi {r.stok_sesudah}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {tiket.length === 0 && !error && (

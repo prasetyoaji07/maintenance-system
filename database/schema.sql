@@ -51,3 +51,17 @@ CREATE TABLE IF NOT EXISTS tiket_part (
   CONSTRAINT tiket_part_tiket_fk FOREIGN KEY (tiket_id) REFERENCES tiket_kerusakan (id) ON DELETE CASCADE,
   CONSTRAINT tiket_part_part_fk FOREIGN KEY (part_id) REFERENCES spare_parts (id)
 );
+
+CREATE TABLE IF NOT EXISTS riwayat_stok (
+  id INT NOT NULL AUTO_INCREMENT,
+  part_id INT NOT NULL,
+  supervisor_id INT NOT NULL,
+  qty_tambah INT NOT NULL,
+  stok_sebelum INT NOT NULL,
+  stok_sesudah INT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY part_id (part_id),
+  CONSTRAINT riwayat_stok_part_fk FOREIGN KEY (part_id) REFERENCES spare_parts (id),
+  CONSTRAINT riwayat_stok_supervisor_fk FOREIGN KEY (supervisor_id) REFERENCES users (id)
+);

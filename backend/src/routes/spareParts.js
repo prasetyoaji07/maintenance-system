@@ -56,20 +56,61 @@ router.post("/:id/stok", async (req, res) => {
     );
     if (part.length === 0) throw tolak(404, "Spare part tidak ditemukan");
 
+    const stokSebelum = part[0].stok;
+    const stokSesudah = stokSebelum + qty;
+
     await conn.query("UPDATE spare_parts SET stok = stok + ? WHERE id = ?", [qty, id]);
+
+    // Catat riwayat penambahan stok dalam transaksi yang sama,
+    // supaya tidak mungkin stok berubah tanpa jejak riwayat (atau sebaliknya).
+    await conn.query(
+      `INSERT INTO riwayat_stok
+        (part_id, supervisor_id, qty_tambah, stok_sebelum, stok_sesudah)
+       VALUES (?, ?, ?, ?, ?)`,
+      [id, supervisorId, qty, stokSebelum, stokSesudah]
+    );
+
     await conn.commit();
 
     res.json({
       id,
       nama: part[0].nama,
-      stok_sebelum: part[0].stok,
-      stok_sekarang: part[0].stok + qty,
+      stok_sebelum: stokSebelum,
+      stok_sekarang: stokSesudah,
     });
   } catch (err) {
     if (conn) await conn.rollback().catch(() => {});
     res.status(err.status || 500).json({ error: err.message });
   } finally {
     if (conn) conn.release();
+  }
+});
+
+// GET /spare-parts/:id/riwayat -> riwayat penambahan stok, terbaru dulu
+router.get("/:id/riwayat", async (req, res) => {
+  const id = angka(req.params.id);
+  if (!id) {
+    return res.status(400).json({ error: "id part harus berupa angka lebih dari 0" });
+  }
+
+  try {
+    const [part] = await db.query("SELECT id FROM spare_parts WHERE id = ?", [id]);
+    if (part.length === 0) {
+      return res.status(404).json({ error: "Spare part tidak ditemukan" });
+    }
+
+    const [rows] = await db.query(
+      `SELECT r.id, r.qty_tambah, r.stok_sebelum, r.stok_sesudah, r.created_at,
+              u.nama AS supervisor_nama
+       FROM riwayat_stok r
+       JOIN users u ON u.id = r.supervisor_id
+       WHERE r.part_id = ?
+       ORDER BY r.created_at DESC, r.id DESC`,
+      [id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
