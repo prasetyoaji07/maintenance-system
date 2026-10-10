@@ -14,7 +14,7 @@ const WARNA: Record<StatusTiket, string> = {
   selesai: 'bg-green-100 text-green-800',
 }
 
-const INTERVAL_MS = 8000
+const INTERVAL_MS = 6000
 
 function waktu(iso: string | null): string {
   if (!iso) return '-'
@@ -203,11 +203,7 @@ function TiketSaya({ user }: Props) {
         <h2 className="text-lg font-semibold text-slate-800">
           Tiket Saya ({user.nama})
         </h2>
-        {aktif ? (
-          <span className="rounded-lg bg-green-100 px-3 py-1.5 text-sm font-semibold text-green-800">
-            Notifikasi aktif (cek tiap {INTERVAL_MS / 1000} detik)
-          </span>
-        ) : (
+          {aktif ? null : (
           <button
             onClick={() => void aktifkanNotifikasi()}
             className="rounded-lg bg-yellow-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-yellow-600"

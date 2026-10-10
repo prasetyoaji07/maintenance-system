@@ -7,19 +7,19 @@ const KUNCI_TOKEN = 'token'
 const KUNCI_USER = 'user'
 
 export function simpanSesi(token: string, user: User) {
-  localStorage.setItem(KUNCI_TOKEN, token)
-  localStorage.setItem(KUNCI_USER, JSON.stringify(user))
+  sessionStorage.setItem(KUNCI_TOKEN, token)
+  sessionStorage.setItem(KUNCI_USER, JSON.stringify(user))
 }
 
 export function hapusSesi() {
-  localStorage.removeItem(KUNCI_TOKEN)
-  localStorage.removeItem(KUNCI_USER)
+  sessionStorage.removeItem(KUNCI_TOKEN)
+  sessionStorage.removeItem(KUNCI_USER)
 }
 
 export function ambilUserTersimpan(): User | null {
   try {
-    const mentah = localStorage.getItem(KUNCI_USER)
-    if (!mentah || !localStorage.getItem(KUNCI_TOKEN)) return null
+    const mentah = sessionStorage.getItem(KUNCI_USER)
+    if (!mentah || !sessionStorage.getItem(KUNCI_TOKEN)) return null
     return JSON.parse(mentah) as User
   } catch {
     return null
@@ -27,7 +27,7 @@ export function ambilUserTersimpan(): User | null {
 }
 
 function headerAuth(): Record<string, string> {
-  const token = localStorage.getItem(KUNCI_TOKEN)
+  const token = sessionStorage.getItem(KUNCI_TOKEN)
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 

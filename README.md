@@ -1,4 +1,4 @@
-# Sistem Maintenance dan Spare Part
+﻿# Sistem Maintenance dan Spare Part
 
 Aplikasi web untuk mengelola tiket kerusakan mesin produksi dan stok spare part. Operator melapor kerusakan, teknisi memperbaiki dan memakai spare part, supervisor menyetujui pemakaian part dan memantau dashboard downtime.
 
@@ -30,7 +30,7 @@ Proyek ini saya bangun berdasarkan pengalaman PKL di bagian Maintenance PT TD Au
 
 **Teknisi**
 - Menerima tiket, memakai spare part pada tiket, dan menyelesaikan perbaikan.
-- Notifikasi tiket baru lewat polling (8 detik), bunyi beep, dan Notification API browser.
+- Notifikasi tiket baru lewat polling (6 detik), bunyi beep, dan Notification API browser.
 
 **Supervisor**
 - Menyetujui pemakaian part saat stok tidak cukup.
@@ -54,7 +54,7 @@ Pemakaian part dan penambahan stok memakai transaksi database dengan penguncian 
 
 - Login memakai email dan password. Password disimpan sebagai hash bcrypt (salt rounds 10).
 - Server mengeluarkan satu JWT dengan masa berlaku 8 jam. Isinya `{id, nama, role}`, ditandatangani dengan `JWT_SECRET` dari `backend/.env`.
-- Token dikirim lewat header `Authorization: Bearer <token>`. Frontend menyimpannya di `localStorage`, dan logout berarti menghapus token di browser.
+- Token dikirim lewat header `Authorization: Bearer <token>`. Frontend menyimpannya di `sessionStorage`, dan logout berarti menghapus token di browser.
 - Identitas pengguna (operator, teknisi, supervisor) selalu diambil dari token, bukan dari body request, sehingga tidak bisa dipalsukan dari sisi klien.
 - Role dicek di server: operator hanya boleh melapor, teknisi mengelola tiket dan memakai part, supervisor menyetujui dan menambah stok.
 
