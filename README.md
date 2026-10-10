@@ -1,4 +1,4 @@
-﻿# Sistem Maintenance dan Spare Part
+# Sistem Maintenance dan Spare Part
 
 Aplikasi web untuk mengelola tiket kerusakan mesin produksi dan stok spare part. Operator melapor kerusakan, teknisi memperbaiki dan memakai spare part, supervisor menyetujui pemakaian part dan memantau dashboard downtime.
 
@@ -19,6 +19,8 @@ Proyek ini saya bangun berdasarkan pengalaman PKL di bagian Maintenance PT TD Au
 | ![Prediksi](docs/screenshots/prediksi.png) | ![Prediksi per part](docs/screenshots/prediksi-per-part.png) |
 
 ![Riwayat kerusakan per mesin](docs/screenshots/riwayat.png)
+
+![Halaman login](docs/screenshots/login.png)
 
 ## Fitur
 
