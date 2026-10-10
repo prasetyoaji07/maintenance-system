@@ -16,11 +16,11 @@ function angka(nilai) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-// GET /spare-parts -> daftar spare part beserta stok dan minimum stok
+// GET /spare-parts -> daftar spare part beserta nomor part, kategori, stok, dan minimum stok
 router.get("/", async (req, res) => {
   try {
     const [rows] = await db.query(
-      "SELECT id, nama, stok, satuan, minimum_stok FROM spare_parts ORDER BY id"
+      "SELECT id, part_number, nama, kategori, stok, satuan, minimum_stok FROM spare_parts ORDER BY part_number"
     );
     res.json(rows);
   } catch (err) {

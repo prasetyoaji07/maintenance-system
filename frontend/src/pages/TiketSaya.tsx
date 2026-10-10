@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ambil, kirim } from '../api'
+import PartPicker from '../components/PartPicker'
 import type { SparePart, StatusTiket, Tiket, TiketDetail, User } from '../types'
 
 interface Props {
@@ -51,6 +52,7 @@ function TiketSaya({ user }: Props) {
   const [parts, setParts] = useState<SparePart[]>([])
   const [pilihPart, setPilihPart] = useState<Record<number, string>>({})
   const [qty, setQty] = useState<Record<number, string>>({})
+  const [resetPart, setResetPart] = useState(0)
   const [info, setInfo] = useState('')
   const [error, setError] = useState('')
   const [sibuk, setSibuk] = useState(false)
@@ -174,6 +176,7 @@ function TiketSaya({ user }: Props) {
       })
       setPilihPart((s) => ({ ...s, [t.id]: '' }))
       setQty((s) => ({ ...s, [t.id]: '' }))
+      setResetPart((v) => v + 1)
       return hasil.status_part === 'dipakai'
         ? `Part dipakai. Stok sisa: ${hasil.stok_sisa}.`
         : `Stok kurang (tersedia ${hasil.stok_tersedia}). Menunggu approval supervisor.`
@@ -275,7 +278,7 @@ function TiketSaya({ user }: Props) {
               </ul>
             )}
 
-            <div className="mt-4 flex flex-wrap items-end gap-3">
+            <div className="mt-4 flex flex-wrap items-start gap-3">
               {t.status === 'pending' && (
                 <button
                   onClick={() => terima(t)}
@@ -288,20 +291,17 @@ function TiketSaya({ user }: Props) {
 
               {t.status === 'diproses' && milik && (
                 <>
-                  <select
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                    value={pilihPart[t.id] ?? ''}
-                    onChange={(e) =>
-                      setPilihPart((s) => ({ ...s, [t.id]: e.target.value }))
+                  <PartPicker
+                    key={`part-${t.id}-${resetPart}`}
+                    parts={parts}
+                    onChange={(id) =>
+                      setPilihPart((s) => ({
+                        ...s,
+                        [t.id]: id ? String(id) : '',
+                      }))
                     }
-                  >
-                    <option value="">-- pilih part --</option>
-                    {parts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nama} (stok {p.stok} {p.satuan})
-                      </option>
-                    ))}
-                  </select>
+                    wrapperClassName="w-96 max-w-full"
+                  />
                   <input
                     type="number"
                     min={1}

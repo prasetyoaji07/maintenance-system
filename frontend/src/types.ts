@@ -15,7 +15,9 @@ export interface Mesin {
 
 export interface SparePart {
   id: number
+  part_number: string
   nama: string
+  kategori: string
   stok: number
   satuan: string
   minimum_stok: number

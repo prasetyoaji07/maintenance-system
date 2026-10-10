@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ambil, kirim } from '../api'
+import PartPicker from '../components/PartPicker'
 import type { SparePart, Tiket, TiketDetail, User } from '../types'
 
 interface Props {
@@ -45,6 +46,7 @@ function Approval({ user }: Props) {
 
   // Kalau belum memilih, tampilkan riwayat part pertama
   const idRiwayat = riwayatPart || (parts[0] ? String(parts[0].id) : '')
+  const partRiwayat = parts.find((p) => String(p.id) === idRiwayat)
 
   const muat = useCallback(async () => {
     try {
@@ -155,19 +157,13 @@ function Approval({ user }: Props) {
 
       <div className="rounded-xl bg-white p-6 shadow">
         <h3 className="font-semibold text-slate-800">Tambah Stok</h3>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <select
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            value={pilihPart}
-            onChange={(e) => setPilihPart(e.target.value)}
-          >
-            <option value="">-- pilih part --</option>
-            {parts.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nama} (stok {p.stok} {p.satuan})
-              </option>
-            ))}
-          </select>
+        <div className="mt-3 flex flex-wrap items-start gap-3">
+          <PartPicker
+            key={`stok-${versi}`}
+            parts={parts}
+            onChange={(id) => setPilihPart(id ? String(id) : '')}
+            wrapperClassName="w-96 max-w-full"
+          />
           <input
             type="number"
             min={1}
@@ -187,22 +183,26 @@ function Approval({ user }: Props) {
       </div>
 
       <div className="rounded-xl bg-white p-6 shadow">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <h3 className="font-semibold text-slate-800">
             Riwayat Penambahan Stok
           </h3>
-          <select
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            value={idRiwayat}
-            onChange={(e) => setRiwayatPart(e.target.value)}
-          >
-            {parts.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nama}
-              </option>
-            ))}
-          </select>
+          <PartPicker
+            key="riwayat"
+            parts={parts}
+            onChange={(id) => {
+              if (id !== null) setRiwayatPart(String(id))
+            }}
+            placeholder="Ketik untuk mencari part..."
+            wrapperClassName="w-96 max-w-full"
+          />
         </div>
+        <p className="mt-2 text-sm text-slate-500">
+          Menampilkan:{' '}
+          {partRiwayat
+            ? `${partRiwayat.part_number} — ${partRiwayat.nama}`
+            : '-'}
+        </p>
 
         {riwayatError && (
           <p className="mt-3 rounded-lg bg-red-100 p-3 text-sm text-red-700">
