@@ -1,6 +1,8 @@
 const express = require("express");
 const pool = require("../db");
 
+const { verifyToken } = require("../middleware/auth");
+
 const router = express.Router();
 
 const PERIODE_VALID = ["semua", "hari", "minggu", "bulan"];
@@ -78,7 +80,7 @@ function filterWaktu(kolom, rentang) {
 // Total downtime per mesin (menit), dihitung dari created_at sampai selesai_at,
 // hanya untuk tiket yang sudah selesai dalam rentang. created_at dipakai sebagai
 // representasi waktu mulai downtime (keputusan final proyek).
-router.get("/downtime", async (req, res) => {
+router.get("/downtime", verifyToken, async (req, res) => {
   const rentang = bacaRentang(req);
   if (rentang.error) return res.status(400).json({ error: rentang.error });
   const f = filterWaktu("t.selesai_at", rentang);
@@ -113,7 +115,7 @@ router.get("/downtime", async (req, res) => {
 // GET /dashboard/part-terpakai?periode=...  atau  ?bulan=2026-09
 // Spare part paling sering dipakai, hanya tiket_part berstatus 'dipakai'.
 // Rentang difilter lewat created_at tiket (tiket_part tidak punya kolom waktu).
-router.get("/part-terpakai", async (req, res) => {
+router.get("/part-terpakai", verifyToken, async (req, res) => {
   const rentang = bacaRentang(req);
   if (rentang.error) return res.status(400).json({ error: rentang.error });
   const f = filterWaktu("t.created_at", rentang);
@@ -148,7 +150,7 @@ router.get("/part-terpakai", async (req, res) => {
 // GET /dashboard/mttr?periode=...  atau  ?bulan=2026-09
 // Mean Time To Repair: rata-rata waktu dari diproses_at sampai selesai_at,
 // hanya tiket yang selesai dalam rentang. Beda dari downtime (dari created_at).
-router.get("/mttr", async (req, res) => {
+router.get("/mttr", verifyToken, async (req, res) => {
   const rentang = bacaRentang(req);
   if (rentang.error) return res.status(400).json({ error: rentang.error });
   const f = filterWaktu("selesai_at", rentang);
@@ -175,7 +177,7 @@ router.get("/mttr", async (req, res) => {
 // GET /dashboard/stok-menipis
 // Daftar spare part yang stoknya di bawah batas minimum (kondisi saat ini,
 // tidak dipengaruhi periode atau bulan).
-router.get("/stok-menipis", async (req, res) => {
+router.get("/stok-menipis", verifyToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT id, nama, stok, satuan, minimum_stok

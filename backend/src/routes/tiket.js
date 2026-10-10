@@ -1,5 +1,6 @@
 const express = require("express");
 const db = require("../db");
+const { verifyToken, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -45,23 +46,16 @@ async function kunciTiket(conn, id) {
   return rows[0];
 }
 
-// Memastikan user ada dan berperan sesuai
-async function pastikanRole(conn, userId, role, namaField) {
-  const [rows] = await conn.query("SELECT role FROM users WHERE id = ?", [userId]);
-  if (rows.length === 0 || rows[0].role !== role) {
-    throw tolak(400, `${namaField} harus milik user dengan role ${role}`);
-  }
-}
-
 // ---------- Lapor kerusakan dan daftar tiket ----------
 
 // POST /tiket -> operator melapor kerusakan
-// Body: { "mesin_id": 1, "operator_id": 1, "keluhan": "Suara kasar dan panas" }
-router.post("/", async (req, res) => {
-  const { mesin_id, operator_id, keluhan } = req.body;
+// Body: { "mesin_id": 1, "keluhan": "Suara kasar dan panas" } (operator_id dari token)
+router.post("/", verifyToken, requireRole("operator"), async (req, res) => {
+  const { mesin_id, keluhan } = req.body || {};
+  const operator_id = req.user.id;
 
-  if (!mesin_id || !operator_id || !keluhan?.trim()) {
-    return res.status(400).json({ error: "mesin_id, operator_id, dan keluhan wajib diisi" });
+  if (!mesin_id || !keluhan?.trim()) {
+    return res.status(400).json({ error: "mesin_id dan keluhan wajib diisi" });
   }
 
   let conn;
@@ -69,19 +63,10 @@ router.post("/", async (req, res) => {
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    const [op] = await conn.query("SELECT role FROM users WHERE id = ?", [operator_id]);
-    if (op.length === 0 || op[0].role !== "operator") {
-      const err = new Error("operator_id harus milik user dengan role operator");
-      err.status = 400;
-      throw err;
-    }
-
     // Kunci baris mesin supaya dua laporan bersamaan tidak lolos keduanya
     const [mesin] = await conn.query("SELECT id FROM mesin WHERE id = ? FOR UPDATE", [mesin_id]);
     if (mesin.length === 0) {
-      const err = new Error("Mesin tidak ditemukan");
-      err.status = 400;
-      throw err;
+      throw tolak(400, "Mesin tidak ditemukan");
     }
 
     const [terbuka] = await conn.query(
@@ -89,9 +74,7 @@ router.post("/", async (req, res) => {
       [mesin_id]
     );
     if (terbuka.length > 0) {
-      const err = new Error("Mesin ini sudah punya tiket yang belum selesai (#" + terbuka[0].id + ")");
-      err.status = 409;
-      throw err;
+      throw tolak(409, "Mesin ini sudah punya tiket yang belum selesai (#" + terbuka[0].id + ")");
     }
 
     const [hasil] = await conn.query(
@@ -103,7 +86,7 @@ router.post("/", async (req, res) => {
     await conn.commit();
     res.status(201).json({ id: hasil.insertId, mesin_id, status: "pending" });
   } catch (err) {
-    if (conn) await conn.rollback();
+    if (conn) await conn.rollback().catch(() => {});
     res.status(err.status || 500).json({ error: err.message });
   } finally {
     if (conn) conn.release();
@@ -111,7 +94,7 @@ router.post("/", async (req, res) => {
 });
 
 // GET /tiket -> semua tiket; GET /tiket?status=aktif -> yang belum selesai
-router.get("/", async (req, res) => {
+router.get("/", verifyToken, async (req, res) => {
   try {
     let sql = `SELECT t.id, t.mesin_id, m.nama AS mesin, t.keluhan, t.status,
                       u.nama AS operator, t.teknisi_id, tk.nama AS teknisi,
@@ -131,7 +114,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET /tiket/:id -> satu tiket lengkap dengan daftar part-nya
-router.get("/:id", async (req, res) => {
+router.get("/:id", verifyToken, async (req, res) => {
   const id = angka(req.params.id);
   if (!id) return res.status(400).json({ error: "id tiket tidak valid" });
 
@@ -168,17 +151,16 @@ router.get("/:id", async (req, res) => {
 // ---------- Alur status tiket ----------
 
 // PATCH /tiket/:id/terima -> teknisi menerima tiket (pending -> diproses)
-// Body: { "teknisi_id": 2 }
-router.patch("/:id/terima", (req, res) => {
+// teknisi_id diambil dari token
+router.patch("/:id/terima", verifyToken, requireRole("teknisi"), (req, res) => {
   const id = angka(req.params.id);
-  const teknisiId = angka(req.body?.teknisi_id);
-  if (!id || !teknisiId) {
-    return res.status(400).json({ error: "id tiket dan teknisi_id wajib berupa angka" });
+  const teknisiId = req.user.id;
+  if (!id) {
+    return res.status(400).json({ error: "id tiket wajib berupa angka" });
   }
 
   transaksi(res, async (conn) => {
     const tiket = await kunciTiket(conn, id);
-    await pastikanRole(conn, teknisiId, "teknisi", "teknisi_id");
     if (tiket.status !== "pending") {
       throw tolak(409, `Tiket berstatus ${tiket.status}, hanya tiket pending yang bisa diterima`);
     }
@@ -194,23 +176,22 @@ router.patch("/:id/terima", (req, res) => {
 });
 
 // POST /tiket/:id/part -> teknisi memakai spare part
-// Body: { "teknisi_id": 2, "part_id": 1, "qty": 2 }
+// Body: { "part_id": 1, "qty": 2 } (teknisi_id dari token)
 // Stok cukup: stok berkurang, tiket tetap diproses.
 // Stok kurang: stok tidak berubah, permintaan dicatat, tiket jadi menunggu_approval.
-router.post("/:id/part", (req, res) => {
+router.post("/:id/part", verifyToken, requireRole("teknisi"), (req, res) => {
   const id = angka(req.params.id);
-  const teknisiId = angka(req.body?.teknisi_id);
+  const teknisiId = req.user.id;
   const partId = angka(req.body?.part_id);
   const qty = angka(req.body?.qty);
-  if (!id || !teknisiId || !partId || !qty) {
-    return res.status(400).json({ error: "teknisi_id, part_id, dan qty wajib berupa angka lebih dari 0" });
+  if (!id || !partId || !qty) {
+    return res.status(400).json({ error: "part_id dan qty wajib berupa angka lebih dari 0" });
   }
 
   transaksi(
     res,
     async (conn) => {
       const tiket = await kunciTiket(conn, id);
-      await pastikanRole(conn, teknisiId, "teknisi", "teknisi_id");
       if (tiket.status !== "diproses") {
         throw tolak(409, `Tiket berstatus ${tiket.status}, part hanya bisa dipakai pada tiket diproses`);
       }
@@ -259,17 +240,15 @@ router.post("/:id/part", (req, res) => {
 });
 
 // PATCH /tiket/:id/setujui -> supervisor menyetujui pembelian part
-// Body: { "supervisor_id": 3 }
-router.patch("/:id/setujui", (req, res) => {
+// supervisor_id diambil dari token
+router.patch("/:id/setujui", verifyToken, requireRole("supervisor"), (req, res) => {
   const id = angka(req.params.id);
-  const supervisorId = angka(req.body?.supervisor_id);
-  if (!id || !supervisorId) {
-    return res.status(400).json({ error: "id tiket dan supervisor_id wajib berupa angka" });
+  if (!id) {
+    return res.status(400).json({ error: "id tiket wajib berupa angka" });
   }
 
   transaksi(res, async (conn) => {
     const tiket = await kunciTiket(conn, id);
-    await pastikanRole(conn, supervisorId, "supervisor", "supervisor_id");
     if (tiket.status !== "menunggu_approval") {
       throw tolak(409, `Tiket berstatus ${tiket.status}, tidak ada yang perlu disetujui`);
     }
@@ -287,17 +266,16 @@ router.patch("/:id/setujui", (req, res) => {
 });
 
 // PATCH /tiket/:id/lanjut -> teknisi melanjutkan setelah stok ditambah
-// Body: { "teknisi_id": 2 }
-router.patch("/:id/lanjut", (req, res) => {
+// teknisi_id diambil dari token
+router.patch("/:id/lanjut", verifyToken, requireRole("teknisi"), (req, res) => {
   const id = angka(req.params.id);
-  const teknisiId = angka(req.body?.teknisi_id);
-  if (!id || !teknisiId) {
-    return res.status(400).json({ error: "id tiket dan teknisi_id wajib berupa angka" });
+  const teknisiId = req.user.id;
+  if (!id) {
+    return res.status(400).json({ error: "id tiket wajib berupa angka" });
   }
 
   transaksi(res, async (conn) => {
     const tiket = await kunciTiket(conn, id);
-    await pastikanRole(conn, teknisiId, "teknisi", "teknisi_id");
     if (tiket.status !== "menunggu_approval") {
       throw tolak(409, `Tiket berstatus ${tiket.status}, hanya tiket menunggu_approval yang bisa dilanjutkan`);
     }
@@ -347,17 +325,16 @@ router.patch("/:id/lanjut", (req, res) => {
 });
 
 // PATCH /tiket/:id/selesai -> teknisi menyelesaikan perbaikan (diproses -> selesai)
-// Body: { "teknisi_id": 2 }
-router.patch("/:id/selesai", (req, res) => {
+// teknisi_id diambil dari token
+router.patch("/:id/selesai", verifyToken, requireRole("teknisi"), (req, res) => {
   const id = angka(req.params.id);
-  const teknisiId = angka(req.body?.teknisi_id);
-  if (!id || !teknisiId) {
-    return res.status(400).json({ error: "id tiket dan teknisi_id wajib berupa angka" });
+  const teknisiId = req.user.id;
+  if (!id) {
+    return res.status(400).json({ error: "id tiket wajib berupa angka" });
   }
 
   transaksi(res, async (conn) => {
     const tiket = await kunciTiket(conn, id);
-    await pastikanRole(conn, teknisiId, "teknisi", "teknisi_id");
     if (tiket.status !== "diproses") {
       throw tolak(409, `Tiket berstatus ${tiket.status}, hanya tiket diproses yang bisa diselesaikan`);
     }

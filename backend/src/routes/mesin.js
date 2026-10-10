@@ -1,10 +1,11 @@
 const express = require("express");
 const db = require("../db");
+const { verifyToken } = require("../middleware/auth");
 
 const router = express.Router();
 
 // GET /mesin -> semua mesin
-router.get("/", async (req, res) => {
+router.get("/", verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query("SELECT id, nama, lokasi, status FROM mesin ORDER BY id");
     res.json(rows);
@@ -15,7 +16,7 @@ router.get("/", async (req, res) => {
 
 // GET /mesin/:id/riwayat -> semua tiket satu mesin, terbaru dulu,
 // lengkap dengan operator, teknisi, durasi downtime, dan part yang dipakai
-router.get("/:id/riwayat", async (req, res) => {
+router.get("/:id/riwayat", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: "id mesin tidak valid" });

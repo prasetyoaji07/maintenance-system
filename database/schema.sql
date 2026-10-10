@@ -68,3 +68,6 @@ CREATE TABLE IF NOT EXISTS riwayat_stok (
   CONSTRAINT riwayat_stok_part_fk FOREIGN KEY (part_id) REFERENCES spare_parts (id),
   CONSTRAINT riwayat_stok_supervisor_fk FOREIGN KEY (supervisor_id) REFERENCES users (id)
 );
+-- Login
+ALTER TABLE users ADD COLUMN email VARCHAR(100), ADD COLUMN password_hash VARCHAR(255);
+ALTER TABLE users ADD UNIQUE KEY uq_users_email (email);

@@ -1,5 +1,6 @@
 const express = require("express");
 const db = require("../db");
+const { verifyToken, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -16,8 +17,8 @@ function angka(nilai) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-// GET /spare-parts -> daftar spare part beserta nomor part, kategori, stok, dan minimum stok
-router.get("/", async (req, res) => {
+// GET /spare-parts -> semua user yang sudah login
+router.get("/", verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query(
       "SELECT id, part_number, nama, kategori, stok, satuan, minimum_stok FROM spare_parts ORDER BY part_number"
@@ -28,27 +29,22 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /spare-parts/:id/stok -> supervisor menambah stok
-// Body: { "supervisor_id": 3, "qty": 5 }
-router.post("/:id/stok", async (req, res) => {
+// POST /spare-parts/:id/stok -> hanya supervisor
+// Body: { "qty": 5 } (supervisor_id diambil dari token)
+router.post("/:id/stok", verifyToken, requireRole("supervisor"), async (req, res) => {
   const id = angka(req.params.id);
-  const supervisorId = angka(req.body?.supervisor_id);
+  const supervisorId = req.user.id;
   const qty = angka(req.body?.qty);
-  if (!id || !supervisorId || !qty) {
+  if (!id || !qty) {
     return res
       .status(400)
-      .json({ error: "id part, supervisor_id, dan qty wajib berupa angka lebih dari 0" });
+      .json({ error: "id part dan qty wajib berupa angka lebih dari 0" });
   }
 
   let conn;
   try {
     conn = await db.getConnection();
     await conn.beginTransaction();
-
-    const [user] = await conn.query("SELECT role FROM users WHERE id = ?", [supervisorId]);
-    if (user.length === 0 || user[0].role !== "supervisor") {
-      throw tolak(403, "Hanya supervisor yang boleh menambah stok");
-    }
 
     const [part] = await conn.query(
       "SELECT id, nama, stok FROM spare_parts WHERE id = ? FOR UPDATE",
@@ -61,7 +57,7 @@ router.post("/:id/stok", async (req, res) => {
 
     await conn.query("UPDATE spare_parts SET stok = stok + ? WHERE id = ?", [qty, id]);
 
-    // Catat riwayat penambahan stok dalam transaksi yang sama,
+    // Catat riwayat dalam transaksi yang sama,
     // supaya tidak mungkin stok berubah tanpa jejak riwayat (atau sebaliknya).
     await conn.query(
       `INSERT INTO riwayat_stok
@@ -86,8 +82,8 @@ router.post("/:id/stok", async (req, res) => {
   }
 });
 
-// GET /spare-parts/:id/riwayat -> riwayat penambahan stok, terbaru dulu
-router.get("/:id/riwayat", async (req, res) => {
+// GET /spare-parts/:id/riwayat -> semua user yang sudah login
+router.get("/:id/riwayat", verifyToken, async (req, res) => {
   const id = angka(req.params.id);
   if (!id) {
     return res.status(400).json({ error: "id part harus berupa angka lebih dari 0" });

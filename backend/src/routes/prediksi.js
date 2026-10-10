@@ -1,5 +1,6 @@
 const express = require("express");
 const pool = require("../db");
+const { verifyToken } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -65,7 +66,7 @@ const bulat1 = (n) => Math.round(n * 10) / 10;
 // GET /prediksi/part?jendela=3|6|12
 // Prakiraan kebutuhan spare part untuk bulan berjalan (WMA), dibandingkan dengan
 // stok dan minimum_stok. Tanpa ?jendela, jendela terbaik dipilih lewat backtest.
-router.get("/part", async (req, res) => {
+router.get("/part", verifyToken, async (req, res) => {
   let dipaksa = null;
   if (req.query.jendela !== undefined) {
     dipaksa = Number(req.query.jendela);
