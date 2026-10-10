@@ -15,12 +15,15 @@ CREATE TABLE IF NOT EXISTS mesin (
 
 CREATE TABLE IF NOT EXISTS spare_parts (
   id INT NOT NULL AUTO_INCREMENT,
+  part_number VARCHAR(50) NOT NULL,
   nama VARCHAR(100) NOT NULL,
+  kategori VARCHAR(50) NOT NULL,
   stok INT NOT NULL DEFAULT 0,
   satuan VARCHAR(20) NOT NULL DEFAULT 'pcs',
   minimum_stok INT NOT NULL DEFAULT 0,
   harga INT NOT NULL DEFAULT 0,
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_part_number (part_number)
 );
 
 CREATE TABLE IF NOT EXISTS tiket_kerusakan (
