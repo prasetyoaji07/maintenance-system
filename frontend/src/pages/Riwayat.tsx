@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { ambil } from '../api'
 import type { Mesin, RiwayatMesin } from '../types'
 
+interface Props {
+  mesinAwal?: string | null
+}
+
 // Database menyimpan waktu UTC, tampilannya dikonversi ke WIB
 function tampilWaktu(iso: string | null): string {
   if (!iso) return '-'
@@ -30,21 +34,35 @@ const WARNA_STATUS: Record<string, string> = {
   selesai: 'bg-green-100 text-green-800',
 }
 
-function Riwayat() {
+function Riwayat({ mesinAwal = null }: Props) {
   const [daftarMesin, setDaftarMesin] = useState<Mesin[]>([])
   const [mesinId, setMesinId] = useState<number | null>(null)
   const [data, setData] = useState<RiwayatMesin | null>(null)
   const [error, setError] = useState('')
+  const [infoQR, setInfoQR] = useState('')
   const [memuat, setMemuat] = useState(false)
 
   useEffect(() => {
     ambil<Mesin[]>('/mesin')
       .then((m) => {
         setDaftarMesin(m)
+        if (mesinAwal !== null) {
+          // Dibuka dari QR: pilih mesinnya, atau beri tahu kalau kodenya tidak dikenal
+          const id = Number(mesinAwal)
+          const ada = Number.isInteger(id) ? m.find((x) => x.id === id) : undefined
+          if (ada) {
+            setMesinId(ada.id)
+          } else {
+            setInfoQR(
+              `Mesin dengan kode ${mesinAwal} dari QR tidak ditemukan. Pilih mesin secara manual.`
+            )
+          }
+          return
+        }
         if (m.length > 0) setMesinId(m[0].id)
       })
       .catch((e: Error) => setError(e.message))
-  }, [])
+  }, [mesinAwal])
 
   useEffect(() => {
     if (mesinId === null) return
@@ -59,19 +77,35 @@ function Riwayat() {
   const selesai = data?.tiket.filter((t) => t.downtime_menit !== null) ?? []
   const totalDowntime = selesai.reduce((s, t) => s + (t.downtime_menit ?? 0), 0)
 
+  function gantiMesin(nilai: string) {
+    setInfoQR('')
+    if (nilai === '') {
+      setMesinId(null)
+      setData(null)
+      return
+    }
+    setMesinId(Number(nilai))
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl bg-white p-6 shadow">
         <h2 className="mb-4 text-lg font-bold text-slate-800">
           Riwayat Kerusakan per Mesin
         </h2>
+        {infoQR && (
+          <p className="mb-4 rounded-lg bg-blue-100 p-3 text-sm text-blue-800">
+            {infoQR}
+          </p>
+        )}
         <label className="flex items-center gap-2 text-sm text-slate-600">
           Mesin:
           <select
             className="rounded-lg border border-slate-300 px-3 py-1.5"
             value={mesinId ?? ''}
-            onChange={(e) => setMesinId(Number(e.target.value))}
+            onChange={(e) => gantiMesin(e.target.value)}
           >
+            <option value="">-- pilih mesin --</option>
             {daftarMesin.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.nama} ({m.lokasi})
@@ -88,7 +122,7 @@ function Riwayat() {
       )}
       {memuat && <p className="text-slate-500">Memuat...</p>}
 
-      {data && !memuat && (
+      {data && !memuat && mesinId !== null && (
         <>
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-xl bg-white p-4 shadow">

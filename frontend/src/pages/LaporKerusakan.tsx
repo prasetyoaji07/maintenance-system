@@ -4,22 +4,36 @@ import type { Mesin, User } from '../types'
 
 interface Props {
   user: User
+  mesinAwal?: string | null
 }
 
-function LaporKerusakan({ user }: Props) {
+function LaporKerusakan({ user, mesinAwal = null }: Props) {
   const [mesin, setMesin] = useState<Mesin[]>([])
   const [line, setLine] = useState('')
   const [mesinId, setMesinId] = useState('')
   const [keluhan, setKeluhan] = useState('')
   const [sukses, setSukses] = useState('')
+  const [info, setInfo] = useState('')
   const [error, setError] = useState('')
   const [mengirim, setMengirim] = useState(false)
 
   useEffect(() => {
     ambil<Mesin[]>('/mesin')
-      .then(setMesin)
+      .then((data) => {
+        setMesin(data)
+        if (mesinAwal) {
+          const m = data.find((x) => String(x.id) === mesinAwal)
+          if (m) {
+            setLine(m.lokasi)
+            setMesinId(String(m.id))
+            setInfo(`Mesin terisi dari QR: ${m.nama}. Kamu masih bisa menggantinya.`)
+          } else {
+            setInfo(`Mesin dengan kode ${mesinAwal} dari QR tidak ditemukan. Pilih mesin secara manual.`)
+          }
+        }
+      })
       .catch((e: Error) => setError(e.message))
-  }, [])
+  }, [mesinAwal])
 
   const daftarLine = Array.from(new Set(mesin.map((m) => m.lokasi))).sort()
   const mesinDiLine = mesin.filter((m) => m.lokasi === line)
@@ -32,6 +46,7 @@ function LaporKerusakan({ user }: Props) {
   async function kirimLaporan() {
     setSukses('')
     setError('')
+    setInfo('')
     if (!line || !mesinId || !keluhan.trim()) {
       setError('Pilih line, mesin, dan isi keluhan dulu.')
       return
@@ -59,6 +74,10 @@ function LaporKerusakan({ user }: Props) {
     <div className="rounded-xl bg-white p-6 shadow">
       <h2 className="text-lg font-semibold text-slate-800">Lapor Kerusakan</h2>
       <p className="mt-1 text-sm text-slate-500">Pelapor: {user.nama}</p>
+
+      {info && (
+        <p className="mt-4 rounded-lg bg-blue-100 p-3 text-sm text-blue-800">{info}</p>
+      )}
 
       <label className="mt-4 block text-sm font-medium text-slate-700">
         Line

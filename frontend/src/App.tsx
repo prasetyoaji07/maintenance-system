@@ -6,23 +6,38 @@ import JadwalPM from './pages/JadwalPM'
 import LaporKerusakan from './pages/LaporKerusakan'
 import Login from './pages/Login'
 import Prediksi from './pages/Prediksi'
+import QRMesin from './pages/QRMesin'
 import Riwayat from './pages/Riwayat'
 import TiketSaya from './pages/TiketSaya'
 import type { Role, User } from './types'
 
 const MENU: Record<Role, string[]> = {
   operator: ['Lapor Kerusakan'],
-  teknisi: ['Tiket Saya', 'Jadwal PM'],
-  supervisor: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi', 'Jadwal PM'],
+  teknisi: ['Tiket Saya', 'Riwayat', 'Jadwal PM'],
+  supervisor: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi', 'Jadwal PM', 'QR Mesin'],
+}
+
+// Kode mesin dari QR (?mesin=ID). Dibaca sekali saat aplikasi dibuka,
+// sehingga masih ada setelah pengguna selesai login.
+function bacaMesinQR(): string | null {
+  return new URLSearchParams(window.location.search).get('mesin')
+}
+
+// Halaman pertama setelah login. Operator melapor lewat QR,
+// peran lain yang membuka QR melihat riwayat mesin tersebut.
+function halamanAwal(u: User, mesinQR: string | null): string {
+  if (mesinQR !== null && u.role !== 'operator') return 'Riwayat'
+  return MENU[u.role][0]
 }
 
 function App() {
   const [user, setUser] = useState<User | null>(ambilUserTersimpan)
-  const [halaman, setHalaman] = useState(user ? MENU[user.role][0] : '')
+  const [mesinQR] = useState<string | null>(bacaMesinQR)
+  const [halaman, setHalaman] = useState(user ? halamanAwal(user, mesinQR) : '')
 
   function sudahLogin(u: User) {
     setUser(u)
-    setHalaman(MENU[u.role][0])
+    setHalaman(halamanAwal(u, mesinQR))
   }
 
   function logout() {
@@ -36,7 +51,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <header className="bg-white shadow">
+      <header className="bg-white shadow print:hidden">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <h1 className="text-xl font-bold text-blue-700">
             Sistem Maintenance dan Spare Part
@@ -54,7 +69,7 @@ function App() {
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-5xl gap-2 px-6 pb-3">
+        <nav className="mx-auto flex max-w-5xl flex-wrap gap-2 px-6 pb-3">
           {MENU[user.role].map((m) => (
             <button
               key={m}
@@ -74,14 +89,15 @@ function App() {
 
       <main className="mx-auto max-w-5xl p-6">
         {halaman === 'Lapor Kerusakan' && (
-          <LaporKerusakan key={user.id} user={user} />
+          <LaporKerusakan key={user.id} user={user} mesinAwal={mesinQR} />
         )}
         {halaman === 'Tiket Saya' && <TiketSaya key={user.id} user={user} />}
         {halaman === 'Approval' && <Approval key={user.id} user={user} />}
         {halaman === 'Dashboard' && <Dashboard key={user.id} />}
-        {halaman === 'Riwayat' && <Riwayat key={user.id} />}
+        {halaman === 'Riwayat' && <Riwayat key={user.id} mesinAwal={mesinQR} />}
         {halaman === 'Prediksi' && <Prediksi key={user.id} />}
         {halaman === 'Jadwal PM' && <JadwalPM key={user.id} user={user} />}
+        {halaman === 'QR Mesin' && <QRMesin key={user.id} />}
       </main>
     </div>
   )
