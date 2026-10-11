@@ -8,6 +8,7 @@ const sparePartsRouter = require("./routes/spareParts");
 const tiketRouter = require("./routes/tiket");
 const dashboardRouter = require("./routes/dashboard");
 const prediksiRouter = require("./routes/prediksi");
+const pmRouter = require("./routes/pm");
 
 const app = express();
 app.use(cors());
@@ -24,6 +25,7 @@ app.use("/spare-parts", sparePartsRouter);
 app.use("/tiket", tiketRouter);
 app.use("/dashboard", dashboardRouter);
 app.use("/prediksi", prediksiRouter);
+app.use("/pm", pmRouter);
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
