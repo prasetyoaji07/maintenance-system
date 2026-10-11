@@ -19,6 +19,20 @@ function angka(nilai) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+// Tanggal hari ini menurut WIB (UTC+7), bentuk "YYYY-MM-DD".
+// Dihitung di JavaScript karena koneksi database memakai UTC.
+function hariIniWIB() {
+  return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+// Menambah sejumlah hari ke tanggal "YYYY-MM-DD", hasil "YYYY-MM-DD".
+// Dihitung murni sebagai kalender UTC, jadi tidak terpengaruh zona waktu mesin.
+function tambahHari(tanggalStr, hari) {
+  const d = new Date(tanggalStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + hari);
+  return d.toISOString().slice(0, 10);
+}
+
 // Menjalankan pekerjaan dalam satu transaksi (rollback otomatis kalau gagal)
 async function transaksi(res, kerja, kodeSukses = 200) {
   let conn;
@@ -39,7 +53,7 @@ async function transaksi(res, kerja, kodeSukses = 200) {
 // Mengunci baris tiket supaya dua aksi bersamaan tidak saling menimpa
 async function kunciTiket(conn, id) {
   const [rows] = await conn.query(
-    "SELECT id, mesin_id, teknisi_id, status FROM tiket_kerusakan WHERE id = ? FOR UPDATE",
+    "SELECT id, mesin_id, teknisi_id, status, jenis_tiket, pm_jadwal_id FROM tiket_kerusakan WHERE id = ? FOR UPDATE",
     [id]
   );
   if (rows.length === 0) throw tolak(404, "Tiket tidak ditemukan");
@@ -69,8 +83,10 @@ router.post("/", verifyToken, requireRole("operator"), async (req, res) => {
       throw tolak(400, "Mesin tidak ditemukan");
     }
 
+    // Aturan "satu tiket terbuka per mesin" dihitung per jenis:
+    // tiket kerusakan dan tiket PM tidak saling memblokir.
     const [terbuka] = await conn.query(
-      "SELECT id FROM tiket_kerusakan WHERE mesin_id = ? AND status <> 'selesai'",
+      "SELECT id FROM tiket_kerusakan WHERE mesin_id = ? AND jenis_tiket = 'kerusakan' AND status <> 'selesai'",
       [mesin_id]
     );
     if (terbuka.length > 0) {
@@ -97,6 +113,7 @@ router.post("/", verifyToken, requireRole("operator"), async (req, res) => {
 router.get("/", verifyToken, async (req, res) => {
   try {
     let sql = `SELECT t.id, t.mesin_id, m.nama AS mesin, t.keluhan, t.status,
+                      t.jenis_tiket, t.pm_jadwal_id, t.jatuh_tempo,
                       u.nama AS operator, t.teknisi_id, tk.nama AS teknisi,
                       t.created_at, t.diproses_at, t.selesai_at
                FROM tiket_kerusakan t
@@ -121,6 +138,7 @@ router.get("/:id", verifyToken, async (req, res) => {
   try {
     const [tiket] = await db.query(
       `SELECT t.id, t.mesin_id, m.nama AS mesin, t.keluhan, t.status,
+              t.jenis_tiket, t.pm_jadwal_id, t.jatuh_tempo,
               t.operator_id, u.nama AS operator,
               t.teknisi_id, tk.nama AS teknisi,
               t.created_at, t.diproses_at, t.selesai_at
@@ -169,7 +187,11 @@ router.patch("/:id/terima", verifyToken, requireRole("teknisi"), (req, res) => {
       "UPDATE tiket_kerusakan SET status = 'diproses', teknisi_id = ?, diproses_at = NOW() WHERE id = ?",
       [teknisiId, id]
     );
-    await conn.query("UPDATE mesin SET status = 'maintenance' WHERE id = ?", [tiket.mesin_id]);
+
+    // Tiket PM tidak mewakili mesin yang rusak, jadi status mesin tidak diubah.
+    if (tiket.jenis_tiket !== "pm") {
+      await conn.query("UPDATE mesin SET status = 'maintenance' WHERE id = ?", [tiket.mesin_id]);
+    }
 
     return { id, status: "diproses", teknisi_id: teknisiId };
   });
@@ -346,7 +368,26 @@ router.patch("/:id/selesai", verifyToken, requireRole("teknisi"), (req, res) => 
       "UPDATE tiket_kerusakan SET status = 'selesai', selesai_at = NOW() WHERE id = ?",
       [id]
     );
-    await conn.query("UPDATE mesin SET status = 'jalan' WHERE id = ?", [tiket.mesin_id]);
+
+    if (tiket.jenis_tiket === "pm") {
+      // Tiket PM tidak mengubah status mesin. Sebagai gantinya, jadwalkan
+      // ulang jatuh tempo berikutnya = tanggal selesai (WIB) + interval_hari.
+      if (tiket.pm_jadwal_id) {
+        const [jadwal] = await conn.query(
+          "SELECT id, interval_hari FROM pm_jadwal WHERE id = ? FOR UPDATE",
+          [tiket.pm_jadwal_id]
+        );
+        if (jadwal.length > 0) {
+          const tempoBaru = tambahHari(hariIniWIB(), jadwal[0].interval_hari);
+          await conn.query(
+            "UPDATE pm_jadwal SET jatuh_tempo_berikutnya = ? WHERE id = ?",
+            [tempoBaru, tiket.pm_jadwal_id]
+          );
+        }
+      }
+    } else {
+      await conn.query("UPDATE mesin SET status = 'jalan' WHERE id = ?", [tiket.mesin_id]);
+    }
 
     return { id, status: "selesai" };
   });

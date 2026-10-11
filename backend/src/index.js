@@ -9,6 +9,7 @@ const tiketRouter = require("./routes/tiket");
 const dashboardRouter = require("./routes/dashboard");
 const prediksiRouter = require("./routes/prediksi");
 const pmRouter = require("./routes/pm");
+const { jalankanAutoGeneratePM } = require("./autoGeneratePM");
 
 const app = express();
 app.use(cors());
@@ -30,4 +31,5 @@ app.use("/pm", pmRouter);
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server berjalan di http://localhost:${PORT}`);
+  jalankanAutoGeneratePM();
 });

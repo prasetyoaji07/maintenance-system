@@ -78,7 +78,8 @@ function filterWaktu(kolom, rentang) {
 
 // GET /dashboard/downtime?periode=semua|hari|minggu|bulan  atau  ?bulan=2026-09
 // Total downtime per mesin (menit), dihitung dari created_at sampai selesai_at,
-// hanya untuk tiket yang sudah selesai dalam rentang. created_at dipakai sebagai
+// hanya untuk tiket KERUSAKAN yang sudah selesai dalam rentang. Tiket PM tidak
+// dihitung sebagai downtime (keputusan PM). created_at dipakai sebagai
 // representasi waktu mulai downtime (keputusan final proyek).
 router.get("/downtime", verifyToken, async (req, res) => {
   const rentang = bacaRentang(req);
@@ -93,7 +94,7 @@ router.get("/downtime", verifyToken, async (req, res) => {
          COALESCE(SUM(TIMESTAMPDIFF(MINUTE, t.created_at, t.selesai_at)), 0) AS total_downtime_menit
        FROM mesin m
        LEFT JOIN tiket_kerusakan t
-         ON t.mesin_id = m.id AND t.status = 'selesai'
+         ON t.mesin_id = m.id AND t.status = 'selesai' AND t.jenis_tiket = 'kerusakan'
          ${f.sql}
        GROUP BY m.id, m.nama
        ORDER BY total_downtime_menit DESC`,
@@ -114,6 +115,8 @@ router.get("/downtime", verifyToken, async (req, res) => {
 
 // GET /dashboard/part-terpakai?periode=...  atau  ?bulan=2026-09
 // Spare part paling sering dipakai, hanya tiket_part berstatus 'dipakai'.
+// TIDAK dibedakan jenis tiket (keputusan PM) — pemakaian part lewat tiket PM
+// tetap ikut dihitung di sini.
 // Rentang difilter lewat created_at tiket (tiket_part tidak punya kolom waktu).
 router.get("/part-terpakai", verifyToken, async (req, res) => {
   const rentang = bacaRentang(req);
@@ -149,7 +152,8 @@ router.get("/part-terpakai", verifyToken, async (req, res) => {
 
 // GET /dashboard/mttr?periode=...  atau  ?bulan=2026-09
 // Mean Time To Repair: rata-rata waktu dari diproses_at sampai selesai_at,
-// hanya tiket yang selesai dalam rentang. Beda dari downtime (dari created_at).
+// hanya tiket KERUSAKAN yang selesai dalam rentang (keputusan PM).
+// Beda dari downtime (dari created_at).
 router.get("/mttr", verifyToken, async (req, res) => {
   const rentang = bacaRentang(req);
   if (rentang.error) return res.status(400).json({ error: rentang.error });
@@ -160,7 +164,8 @@ router.get("/mttr", verifyToken, async (req, res) => {
          COUNT(*) AS jumlah_tiket_selesai,
          COALESCE(AVG(TIMESTAMPDIFF(MINUTE, diproses_at, selesai_at)), 0) AS mttr_menit
        FROM tiket_kerusakan
-       WHERE status = 'selesai' AND diproses_at IS NOT NULL AND selesai_at IS NOT NULL
+       WHERE status = 'selesai' AND jenis_tiket = 'kerusakan'
+         AND diproses_at IS NOT NULL AND selesai_at IS NOT NULL
          ${f.sql}`,
       f.params
     );
@@ -176,7 +181,7 @@ router.get("/mttr", verifyToken, async (req, res) => {
 
 // GET /dashboard/stok-menipis
 // Daftar spare part yang stoknya di bawah batas minimum (kondisi saat ini,
-// tidak dipengaruhi periode atau bulan).
+// tidak dipengaruhi periode atau bulan, dan tidak dipengaruhi jenis tiket).
 router.get("/stok-menipis", verifyToken, async (req, res) => {
   try {
     const [rows] = await pool.query(

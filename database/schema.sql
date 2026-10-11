@@ -71,3 +71,28 @@ CREATE TABLE IF NOT EXISTS riwayat_stok (
 -- Login
 ALTER TABLE users ADD COLUMN email VARCHAR(100), ADD COLUMN password_hash VARCHAR(255);
 ALTER TABLE users ADD UNIQUE KEY uq_users_email (email);
+
+-- Preventive Maintenance
+CREATE TABLE IF NOT EXISTS pm_jadwal (
+  id INT NOT NULL AUTO_INCREMENT,
+  mesin_id INT NOT NULL,
+  nama_tugas VARCHAR(150) NOT NULL,
+  interval_hari INT NOT NULL,
+  jatuh_tempo_berikutnya DATE NOT NULL,
+  aktif TINYINT(1) NOT NULL DEFAULT 1,
+  dibuat_oleh INT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY mesin_id (mesin_id),
+  CONSTRAINT pm_jadwal_mesin_fk FOREIGN KEY (mesin_id) REFERENCES mesin (id),
+  CONSTRAINT pm_jadwal_user_fk FOREIGN KEY (dibuat_oleh) REFERENCES users (id)
+);
+
+ALTER TABLE tiket_kerusakan
+  ADD COLUMN jenis_tiket ENUM('kerusakan','pm') NOT NULL DEFAULT 'kerusakan',
+  ADD COLUMN pm_jadwal_id INT NULL,
+  ADD COLUMN jatuh_tempo DATE NULL;
+ALTER TABLE tiket_kerusakan
+  ADD CONSTRAINT tiket_pm_jadwal_fk FOREIGN KEY (pm_jadwal_id) REFERENCES pm_jadwal (id);
+ALTER TABLE tiket_kerusakan
+  ADD UNIQUE KEY uq_pm_jadwal_tempo (pm_jadwal_id, jatuh_tempo);

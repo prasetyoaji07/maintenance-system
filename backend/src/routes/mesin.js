@@ -32,10 +32,10 @@ router.get("/:id/riwayat", verifyToken, async (req, res) => {
     }
 
     const [tiket] = await db.query(
-      `SELECT t.id, t.keluhan, t.status,
+      `SELECT t.id, t.keluhan, t.status, t.jenis_tiket,
               u.nama AS operator, tk.nama AS teknisi,
               t.created_at, t.diproses_at, t.selesai_at,
-              CASE WHEN t.selesai_at IS NULL THEN NULL
+              CASE WHEN t.selesai_at IS NULL OR t.jenis_tiket = 'pm' THEN NULL
                    ELSE TIMESTAMPDIFF(MINUTE, t.created_at, t.selesai_at) END AS downtime_menit
        FROM tiket_kerusakan t
        JOIN users u ON u.id = t.operator_id
