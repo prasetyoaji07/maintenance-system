@@ -86,7 +86,7 @@ function TiketSaya({ user }: Props) {
               typeof Notification !== 'undefined' &&
               Notification.permission === 'granted'
             ) {
-              new Notification('Tiket kerusakan baru', { body: teks })
+              new Notification('Tiket baru', { body: teks })
             }
           }
           dikenal.current = new Set(pending.map((t) => t.id))
@@ -245,6 +245,11 @@ function TiketSaya({ user }: Props) {
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-slate-800">
                 #{t.id} - {t.mesin}
+                {t.jenis_tiket === 'pm' && (
+                  <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-800">
+                    PM
+                  </span>
+                )}
               </h3>
               <span
                 className={
@@ -257,7 +262,7 @@ function TiketSaya({ user }: Props) {
             </div>
             <p className="mt-2 text-slate-700">{t.keluhan}</p>
             <p className="mt-1 text-sm text-slate-500">
-              Dilapor {t.operator} pada {waktu(t.created_at)}
+             {t.jenis_tiket === 'pm' ? 'Dijadwalkan oleh' : 'Dilapor'} {t.operator} pada {waktu(t.created_at)}
             </p>
             <p className="text-sm text-slate-500">
               Teknisi: {t.teknisi ?? '-'} | Mulai diproses:{' '}

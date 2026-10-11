@@ -94,7 +94,7 @@ function Riwayat() {
             <div className="rounded-xl bg-white p-4 shadow">
               <p className="text-xs text-slate-500">Jumlah kerusakan</p>
               <p className="text-2xl font-bold text-slate-800">
-                {data.tiket.length}
+                {data.tiket.filter((t) => t.jenis_tiket === 'kerusakan').length}
               </p>
             </div>
             <div className="rounded-xl bg-white p-4 shadow">
@@ -120,7 +120,14 @@ function Riwayat() {
           {data.tiket.map((t) => (
             <div key={t.id} className="rounded-xl bg-white p-5 shadow">
               <div className="mb-2 flex items-center justify-between">
-                <p className="font-bold text-slate-800">Tiket #{t.id}</p>
+                <p className="font-bold text-slate-800">
+                  Tiket #{t.id}
+                  {t.jenis_tiket === 'pm' && (
+                    <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-800">
+                      PM
+                    </span>
+                  )}
+                </p>
                 <span
                   className={
                     'rounded-full px-3 py-1 text-xs font-semibold ' +
@@ -132,12 +139,15 @@ function Riwayat() {
               </div>
               <p className="mb-3 text-slate-700">{t.keluhan}</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-600">
-                <p>Operator: {t.operator}</p>
+                <p>{t.jenis_tiket === 'pm' ? 'Dijadwalkan oleh' : 'Operator'}: {t.operator}</p>
                 <p>Teknisi: {t.teknisi ?? '-'}</p>
                 <p>Dilaporkan: {tampilWaktu(t.created_at)}</p>
                 <p>Selesai: {tampilWaktu(t.selesai_at)}</p>
                 <p className="col-span-2 font-semibold text-slate-800">
-                  Downtime: {tampilDurasi(t.downtime_menit)}
+                  Downtime:{' '}
+                  {t.jenis_tiket === 'pm'
+                    ? 'Tidak ada (mesin tetap jalan)'
+                    : tampilDurasi(t.downtime_menit)}
                 </p>
               </div>
               {t.parts.length > 0 && (

@@ -41,6 +41,9 @@ export interface Tiket {
   created_at: string
   diproses_at: string | null
   selesai_at: string | null
+  jenis_tiket: 'kerusakan' | 'pm'
+  pm_jadwal_id: number | null
+  jatuh_tempo: string | null
 }
 
 export interface PartTiket {
@@ -65,6 +68,7 @@ export interface TiketRiwayat {
   id: number
   keluhan: string
   status: StatusTiket
+  jenis_tiket: 'kerusakan' | 'pm'
   operator: string
   teknisi: string | null
   created_at: string
@@ -77,4 +81,16 @@ export interface TiketRiwayat {
 export interface RiwayatMesin {
   mesin: Mesin
   tiket: TiketRiwayat[]
+}
+
+export interface JadwalPM {
+  id: number
+  mesin_id: number
+  mesin_nama: string
+  nama_tugas: string
+  interval_hari: number
+  jatuh_tempo_berikutnya: string
+  aktif: boolean
+  terlambat: boolean
+  dibuat_oleh_nama: string
 }

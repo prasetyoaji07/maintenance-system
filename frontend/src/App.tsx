@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ambilUserTersimpan, hapusSesi } from './api'
 import Approval from './pages/Approval'
 import Dashboard from './pages/Dashboard'
+import JadwalPM from './pages/JadwalPM'
 import LaporKerusakan from './pages/LaporKerusakan'
 import Login from './pages/Login'
 import Prediksi from './pages/Prediksi'
@@ -11,8 +12,8 @@ import type { Role, User } from './types'
 
 const MENU: Record<Role, string[]> = {
   operator: ['Lapor Kerusakan'],
-  teknisi: ['Tiket Saya'],
-  supervisor: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi'],
+  teknisi: ['Tiket Saya', 'Jadwal PM'],
+  supervisor: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi', 'Jadwal PM'],
 }
 
 function App() {
@@ -80,6 +81,7 @@ function App() {
         {halaman === 'Dashboard' && <Dashboard key={user.id} />}
         {halaman === 'Riwayat' && <Riwayat key={user.id} />}
         {halaman === 'Prediksi' && <Prediksi key={user.id} />}
+        {halaman === 'Jadwal PM' && <JadwalPM key={user.id} user={user} />}
       </main>
     </div>
   )
