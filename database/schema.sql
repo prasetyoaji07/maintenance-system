@@ -96,3 +96,34 @@ ALTER TABLE tiket_kerusakan
   ADD CONSTRAINT tiket_pm_jadwal_fk FOREIGN KEY (pm_jadwal_id) REFERENCES pm_jadwal (id);
 ALTER TABLE tiket_kerusakan
   ADD UNIQUE KEY uq_pm_jadwal_tempo (pm_jadwal_id, jatuh_tempo);
+
+  
+-- Role, divisi, dan struktur mesin (alur divisi)
+ALTER TABLE users
+  MODIFY COLUMN role ENUM('operator','teknisi','supervisor','leader_divisi','installer_divisi','foreman_divisi','spv_divisi','mekanik_mtnc','spv_mtnc') NOT NULL;
+ALTER TABLE users ADD COLUMN divisi VARCHAR(20) DEFAULT 'A';
+
+ALTER TABLE mesin ADD COLUMN divisi VARCHAR(20) DEFAULT 'A';
+ALTER TABLE mesin ADD COLUMN line VARCHAR(20) DEFAULT '1';
+ALTER TABLE mesin ADD UNIQUE KEY uniq_divisi_line_nama (divisi, line, nama);
+
+-- Alur surat dan tanda tangan berlapis
+ALTER TABLE tiket_kerusakan
+  MODIFY COLUMN status ENUM('pending','diproses','menunggu_approval','selesai','ditangani_leader','ditangani_installer','menunggu_ttd','menunggu_assign_spv_mtnc','diproses_maintenance') NOT NULL DEFAULT 'pending';
+ALTER TABLE tiket_kerusakan
+  ADD COLUMN laporan_leader TEXT NULL,
+  ADD COLUMN laporan_installer TEXT NULL,
+  ADD COLUMN laporan_permasalahan TEXT NULL;
+ALTER TABLE tiket_kerusakan
+  ADD COLUMN ttd_foreman_oleh VARCHAR(100) NULL,
+  ADD COLUMN ttd_foreman_at DATETIME NULL,
+  ADD COLUMN ttd_foreman_ttd MEDIUMTEXT NULL,
+  ADD COLUMN ttd_foreman_via INT NULL;
+ALTER TABLE tiket_kerusakan
+  ADD COLUMN ttd_spv_oleh VARCHAR(100) NULL,
+  ADD COLUMN ttd_spv_at DATETIME NULL,
+  ADD COLUMN ttd_spv_ttd MEDIUMTEXT NULL,
+  ADD COLUMN ttd_spv_via INT NULL;
+ALTER TABLE tiket_kerusakan ADD COLUMN ditugaskan_ke INT NULL;
+ALTER TABLE tiket_kerusakan
+  ADD CONSTRAINT tiket_ditugaskan_fk FOREIGN KEY (ditugaskan_ke) REFERENCES users (id);

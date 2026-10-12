@@ -16,3 +16,8 @@ INSERT INTO spare_parts (part_number, nama, kategori, stok, satuan, minimum_stok
 UPDATE users SET email = 'yamal@operator.com', password_hash = '$2b$10$BB7nZmpoJvdqPLCBATTCDuCAQ8XoPXeyhmPeEdslITd/A6IMltNfS' WHERE id = 1;
 UPDATE users SET email = 'raphinha@teknisi.com', password_hash = '$2b$10$nliwRzKthLB2YXz2UTAa8OlZzH4SElvgaadr0ArSML/RkNcuOg0RW' WHERE id = 2;
 UPDATE users SET email = 'flick@supervisor.com', password_hash = '$2b$10$cj83YRUpcSVX7tDN6Ndj/.tZVvg2q5gFDDHImPVRS6Y8Gm.u0FKx6' WHERE id = 3;
+
+
+-- Akun demo lama adalah staf maintenance (bukan satu divisi)
+UPDATE users SET role = 'mekanik_mtnc', divisi = 'ALL' WHERE id = 2;
+UPDATE users SET role = 'spv_mtnc', divisi = 'ALL' WHERE id = 3;
