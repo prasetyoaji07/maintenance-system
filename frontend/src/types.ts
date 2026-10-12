@@ -1,4 +1,4 @@
-export type Role = 'operator' | 'teknisi' | 'supervisor'
+export type Role = 'operator' | 'teknisi' | 'supervisor' | 'leader_divisi' | 'installer_divisi' | 'foreman_divisi' | 'spv_divisi' | 'mekanik_mtnc' | 'spv_mtnc' 
 
 export interface User {
   id: number

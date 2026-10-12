@@ -13,27 +13,29 @@ import type { Role, User } from './types'
 
 const MENU: Record<Role, string[]> = {
   operator: ['Lapor Kerusakan'],
+  leader_divisi: ['Lapor Kerusakan', 'Riwayat'],
+  installer_divisi: ['Riwayat'],
+  foreman_divisi: ['Riwayat'],
+  spv_divisi: ['Riwayat'],
   teknisi: ['Tiket Saya', 'Riwayat', 'Jadwal PM'],
+  mekanik_mtnc: ['Tiket Saya', 'Riwayat', 'Jadwal PM'],
   supervisor: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi', 'Jadwal PM', 'QR Mesin'],
+  spv_mtnc: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi', 'Jadwal PM', 'QR Mesin'],
 }
 
-// Kode mesin dari QR (?mesin=ID). Dibaca sekali saat aplikasi dibuka,
-// sehingga masih ada setelah pengguna selesai login.
 function bacaMesinQR(): string | null {
   return new URLSearchParams(window.location.search).get('mesin')
 }
 
-// Halaman pertama setelah login. Operator melapor lewat QR,
-// peran lain yang membuka QR melihat riwayat mesin tersebut.
 function halamanAwal(u: User, mesinQR: string | null): string {
-  if (mesinQR !== null && u.role !== 'operator') return 'Riwayat'
-  return MENU[u.role][0]
+  if (mesinQR!== null &&!['operator','leader_divisi','installer_divisi'].includes(u.role)) return 'Riwayat'
+  return MENU[u.role]?.[0] || 'Riwayat'
 }
 
 function App() {
   const [user, setUser] = useState<User | null>(ambilUserTersimpan)
   const [mesinQR] = useState<string | null>(bacaMesinQR)
-  const [halaman, setHalaman] = useState(user ? halamanAwal(user, mesinQR) : '')
+  const [halaman, setHalaman] = useState(user? halamanAwal(user, mesinQR) : '')
 
   function sudahLogin(u: User) {
     setUser(u)
@@ -46,8 +48,9 @@ function App() {
     setHalaman('')
   }
 
-  // Route guard: belum login -> halaman login
   if (!user) return <Login onLogin={sudahLogin} />
+
+  const menuUser = MENU[user.role] || MENU['operator']
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -57,40 +60,21 @@ function App() {
             Sistem Maintenance dan Spare Part
           </h1>
           <div className="flex items-center gap-3 text-sm text-slate-600">
-            <span>
-              {user.nama} ({user.role})
-            </span>
-            <button
-              onClick={logout}
-              className="rounded-lg bg-slate-200 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-300"
-            >
-              Keluar
-            </button>
+            <span>{user.nama} ({user.role})</span>
+            <button onClick={logout} className="rounded-lg bg-slate-200 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-300">Keluar</button>
           </div>
         </div>
-
         <nav className="mx-auto flex max-w-5xl flex-wrap gap-2 px-6 pb-3">
-          {MENU[user.role].map((m) => (
-            <button
-              key={m}
-              onClick={() => setHalaman(m)}
-              className={
-                'rounded-lg px-4 py-2 text-sm font-semibold ' +
-                (halaman === m
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300')
-              }
-            >
+          {menuUser.map((m) => (
+            <button key={m} onClick={() => setHalaman(m)}
+              className={'rounded-lg px-4 py-2 text-sm font-semibold ' + (halaman === m? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300')}>
               {m}
             </button>
           ))}
         </nav>
       </header>
-
       <main className="mx-auto max-w-5xl p-6">
-        {halaman === 'Lapor Kerusakan' && (
-          <LaporKerusakan key={user.id} user={user} mesinAwal={mesinQR} />
-        )}
+        {halaman === 'Lapor Kerusakan' && <LaporKerusakan key={user.id} user={user} mesinAwal={mesinQR} />}
         {halaman === 'Tiket Saya' && <TiketSaya key={user.id} user={user} />}
         {halaman === 'Approval' && <Approval key={user.id} user={user} />}
         {halaman === 'Dashboard' && <Dashboard key={user.id} />}

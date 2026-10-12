@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const { verifyToken, requireRole } = require("../middleware/auth");
+const { SUPERVISOR, LIHAT_PM } = require("../middleware/roles");
 
 const router = express.Router();
 router.use(verifyToken);
@@ -65,7 +66,7 @@ function kirimError(res, err) {
 }
 
 // GET /pm -> daftar jadwal PM (teknisi dan supervisor, hanya baca)
-router.get("/", requireRole("teknisi", "supervisor"), async (req, res) => {
+router.get("/", requireRole(...LIHAT_PM), async (req, res) => {
   try {
     const [rows] = await db.query(
       `${SELECT_JADWAL} ORDER BY j.aktif DESC, j.jatuh_tempo_berikutnya, j.id`
@@ -79,7 +80,7 @@ router.get("/", requireRole("teknisi", "supervisor"), async (req, res) => {
 
 // POST /pm -> supervisor membuat jadwal
 // Body: { "mesin_id": 1, "nama_tugas": "Ganti oli", "interval_hari": 90, "jatuh_tempo_berikutnya": "2026-11-01" }
-router.post("/", requireRole("supervisor"), async (req, res) => {
+router.post("/", requireRole(...SUPERVISOR), async (req, res) => {
   try {
     const mesinId = angka(req.body?.mesin_id);
     const nama = String(req.body?.nama_tugas ?? "").trim();
@@ -98,8 +99,8 @@ router.post("/", requireRole("supervisor"), async (req, res) => {
 
     // dibuat_oleh selalu dari token, dan harus supervisor yang benar-benar ada di database
     const [user] = await db.query("SELECT role FROM users WHERE id = ?", [req.user.id]);
-    if (user.length === 0 || user[0].role !== "supervisor") {
-      throw tolak(403, "Hanya supervisor yang boleh membuat jadwal PM");
+    if (user.length === 0 || !SUPERVISOR.includes(user[0].role)) {
+  throw tolak(403, "Hanya supervisor yang boleh membuat jadwal PM");
     }
 
     const [hasil] = await db.query(
@@ -115,7 +116,7 @@ router.post("/", requireRole("supervisor"), async (req, res) => {
 
 // PATCH /pm/:id -> supervisor mengubah jadwal (tanpa DELETE; nonaktifkan lewat aktif = false)
 // Body (boleh sebagian): { "nama_tugas", "interval_hari", "jatuh_tempo_berikutnya", "aktif" }
-router.patch("/:id", requireRole("supervisor"), async (req, res) => {
+router.patch("/:id", requireRole(...SUPERVISOR), async (req, res) => {
   try {
     const id = angka(req.params.id);
     if (!id) throw tolak(400, "id jadwal tidak valid");

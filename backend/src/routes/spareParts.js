@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const { verifyToken, requireRole } = require("../middleware/auth");
+const { SUPERVISOR } = require("../middleware/roles");
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ router.get("/", verifyToken, async (req, res) => {
 
 // POST /spare-parts/:id/stok -> hanya supervisor
 // Body: { "qty": 5 } (supervisor_id diambil dari token)
-router.post("/:id/stok", verifyToken, requireRole("supervisor"), async (req, res) => {
+router.post("/:id/stok", verifyToken, requireRole(...SUPERVISOR), async (req, res) => {
   const id = angka(req.params.id);
   const supervisorId = req.user.id;
   const qty = angka(req.body?.qty);

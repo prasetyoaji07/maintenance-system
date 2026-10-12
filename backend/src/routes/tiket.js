@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const { verifyToken, requireRole } = require("../middleware/auth");
+const { LAPOR_KERUSAKAN, TEKNISI, SUPERVISOR } = require("../middleware/roles");
 
 const router = express.Router();
 
@@ -64,7 +65,7 @@ async function kunciTiket(conn, id) {
 
 // POST /tiket -> operator melapor kerusakan
 // Body: { "mesin_id": 1, "keluhan": "Suara kasar dan panas" } (operator_id dari token)
-router.post("/", verifyToken, requireRole("operator"), async (req, res) => {
+router.post("/", verifyToken, requireRole(...LAPOR_KERUSAKAN), async (req, res) => {
   const { mesin_id, keluhan } = req.body || {};
   const operator_id = req.user.id;
 
@@ -170,7 +171,7 @@ router.get("/:id", verifyToken, async (req, res) => {
 
 // PATCH /tiket/:id/terima -> teknisi menerima tiket (pending -> diproses)
 // teknisi_id diambil dari token
-router.patch("/:id/terima", verifyToken, requireRole("teknisi"), (req, res) => {
+router.patch("/:id/terima", verifyToken, requireRole(...TEKNISI), (req, res) => {
   const id = angka(req.params.id);
   const teknisiId = req.user.id;
   if (!id) {
@@ -201,7 +202,7 @@ router.patch("/:id/terima", verifyToken, requireRole("teknisi"), (req, res) => {
 // Body: { "part_id": 1, "qty": 2 } (teknisi_id dari token)
 // Stok cukup: stok berkurang, tiket tetap diproses.
 // Stok kurang: stok tidak berubah, permintaan dicatat, tiket jadi menunggu_approval.
-router.post("/:id/part", verifyToken, requireRole("teknisi"), (req, res) => {
+router.post("/:id/part", verifyToken, requireRole(...TEKNISI), (req, res) => {
   const id = angka(req.params.id);
   const teknisiId = req.user.id;
   const partId = angka(req.body?.part_id);
@@ -263,7 +264,7 @@ router.post("/:id/part", verifyToken, requireRole("teknisi"), (req, res) => {
 
 // PATCH /tiket/:id/setujui -> supervisor menyetujui pembelian part
 // supervisor_id diambil dari token
-router.patch("/:id/setujui", verifyToken, requireRole("supervisor"), (req, res) => {
+router.patch("/:id/setujui", verifyToken, requireRole(...SUPERVISOR), (req, res) => {
   const id = angka(req.params.id);
   if (!id) {
     return res.status(400).json({ error: "id tiket wajib berupa angka" });
@@ -289,7 +290,7 @@ router.patch("/:id/setujui", verifyToken, requireRole("supervisor"), (req, res) 
 
 // PATCH /tiket/:id/lanjut -> teknisi melanjutkan setelah stok ditambah
 // teknisi_id diambil dari token
-router.patch("/:id/lanjut", verifyToken, requireRole("teknisi"), (req, res) => {
+router.patch("/:id/lanjut", verifyToken, requireRole(...TEKNISI), (req, res) => {
   const id = angka(req.params.id);
   const teknisiId = req.user.id;
   if (!id) {
@@ -348,7 +349,7 @@ router.patch("/:id/lanjut", verifyToken, requireRole("teknisi"), (req, res) => {
 
 // PATCH /tiket/:id/selesai -> teknisi menyelesaikan perbaikan (diproses -> selesai)
 // teknisi_id diambil dari token
-router.patch("/:id/selesai", verifyToken, requireRole("teknisi"), (req, res) => {
+router.patch("/:id/selesai", verifyToken, requireRole(...TEKNISI), (req, res) => {
   const id = angka(req.params.id);
   const teknisiId = req.user.id;
   if (!id) {
