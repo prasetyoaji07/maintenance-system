@@ -5,5 +5,6 @@ const LAPOR_KERUSAKAN = ["operator", "leader_divisi"];
 const TEKNISI = ["teknisi", "mekanik_mtnc"];
 const SUPERVISOR = ["supervisor", "spv_mtnc"];
 const LIHAT_PM = ["teknisi", "mekanik_mtnc", "supervisor", "spv_mtnc"];
+const LAPORAN = [...TEKNISI, ...SUPERVISOR];
 
-module.exports = { LAPOR_KERUSAKAN, TEKNISI, SUPERVISOR, LIHAT_PM };
+module.exports = { LAPOR_KERUSAKAN, TEKNISI, SUPERVISOR, LIHAT_PM, LAPORAN };

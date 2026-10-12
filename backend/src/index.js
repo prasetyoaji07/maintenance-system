@@ -9,6 +9,7 @@ const tiketRouter = require("./routes/tiket");
 const dashboardRouter = require("./routes/dashboard");
 const prediksiRouter = require("./routes/prediksi");
 const pmRouter = require("./routes/pm");
+const laporanRouter = require("./routes/laporan");
 const { jalankanAutoGeneratePM } = require("./autoGeneratePM");
 
 const app = express();
@@ -27,6 +28,7 @@ app.use("/tiket", tiketRouter);
 app.use("/dashboard", dashboardRouter);
 app.use("/prediksi", prediksiRouter);
 app.use("/pm", pmRouter);
+app.use("/laporan", laporanRouter);
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {

@@ -3,6 +3,7 @@ import { ambilUserTersimpan, hapusSesi } from './api'
 import Approval from './pages/Approval'
 import Dashboard from './pages/Dashboard'
 import JadwalPM from './pages/JadwalPM'
+import LaporanBulanan from './pages/LaporanBulanan'
 import LaporKerusakan from './pages/LaporKerusakan'
 import Login from './pages/Login'
 import Prediksi from './pages/Prediksi'
@@ -17,10 +18,10 @@ const MENU: Record<Role, string[]> = {
   installer_divisi: ['Riwayat'],
   foreman_divisi: ['Riwayat'],
   spv_divisi: ['Riwayat'],
-  teknisi: ['Tiket Saya', 'Riwayat', 'Jadwal PM'],
-  mekanik_mtnc: ['Tiket Saya', 'Riwayat', 'Jadwal PM'],
-  supervisor: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi', 'Jadwal PM', 'QR Mesin'],
-  spv_mtnc: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi', 'Jadwal PM', 'QR Mesin'],
+  teknisi: ['Tiket Saya', 'Riwayat', 'Jadwal PM', 'Laporan Bulanan'],
+  mekanik_mtnc: ['Tiket Saya', 'Riwayat', 'Jadwal PM', 'Laporan Bulanan'],
+  supervisor: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi', 'Jadwal PM', 'Laporan Bulanan', 'QR Mesin'],
+  spv_mtnc: ['Approval', 'Dashboard', 'Riwayat', 'Prediksi', 'Jadwal PM', 'Laporan Bulanan', 'QR Mesin'],
 }
 
 function bacaMesinQR(): string | null {
@@ -82,6 +83,7 @@ function App() {
         {halaman === 'Prediksi' && <Prediksi key={user.id} />}
         {halaman === 'Jadwal PM' && <JadwalPM key={user.id} user={user} />}
         {halaman === 'QR Mesin' && <QRMesin key={user.id} />}
+        {halaman === 'Laporan Bulanan' && <LaporanBulanan key={user.id} />}
       </main>
     </div>
   )
