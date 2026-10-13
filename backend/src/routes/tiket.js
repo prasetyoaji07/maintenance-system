@@ -5,6 +5,9 @@ const { LAPOR_KERUSAKAN, TEKNISI, SUPERVISOR } = require("../middleware/roles");
 
 const router = express.Router();
 
+// Status "sedang dikerjakan": alur lama = diproses, alur TTD Surat = diproses_maintenance
+const STATUS_DIKERJAKAN = ["diproses", "diproses_maintenance"];
+
 // ---------- Fungsi bantu ----------
 
 // Membuat error yang membawa kode HTTP
@@ -34,6 +37,14 @@ function tambahHari(tanggalStr, hari) {
   return d.toISOString().slice(0, 10);
 }
 
+// Apakah user ini yang menangani tiket (alur lama: teknisi_id, alur TTD Surat: ditugaskan_ke)
+function milikUser(tiket, userId) {
+  return (
+    Number(tiket.teknisi_id) === Number(userId) ||
+    Number(tiket.ditugaskan_ke) === Number(userId)
+  );
+}
+
 // Menjalankan pekerjaan dalam satu transaksi (rollback otomatis kalau gagal)
 async function transaksi(res, kerja, kodeSukses = 200) {
   let conn;
@@ -54,7 +65,7 @@ async function transaksi(res, kerja, kodeSukses = 200) {
 // Mengunci baris tiket supaya dua aksi bersamaan tidak saling menimpa
 async function kunciTiket(conn, id) {
   const [rows] = await conn.query(
-    "SELECT id, mesin_id, teknisi_id, status, jenis_tiket, pm_jadwal_id FROM tiket_kerusakan WHERE id = ? FOR UPDATE",
+    "SELECT id, mesin_id, teknisi_id, ditugaskan_ke, status, jenis_tiket, pm_jadwal_id FROM tiket_kerusakan WHERE id = ? FOR UPDATE",
     [id]
   );
   if (rows.length === 0) throw tolak(404, "Tiket tidak ditemukan");
@@ -111,16 +122,23 @@ router.post("/", verifyToken, requireRole(...LAPOR_KERUSAKAN), async (req, res) 
 });
 
 // GET /tiket -> semua tiket; GET /tiket?status=aktif -> yang belum selesai
+// teknisi_id/teknisi diisi dari ditugaskan_ke kalau tiket berasal dari alur TTD Surat.
 router.get("/", verifyToken, async (req, res) => {
   try {
-    let sql = `SELECT t.id, t.mesin_id, m.nama AS mesin, t.keluhan, t.status,
+    let sql = `SELECT t.id, t.mesin_id, m.nama AS mesin, m.lokasi, m.divisi,
+                      t.keluhan, t.status,
                       t.jenis_tiket, t.pm_jadwal_id, t.jatuh_tempo,
-                      u.nama AS operator, t.teknisi_id, tk.nama AS teknisi,
+                      u.nama AS operator,
+                      COALESCE(t.teknisi_id, t.ditugaskan_ke) AS teknisi_id,
+                      COALESCE(tk.nama, mk.nama) AS teknisi,
+                      t.ditugaskan_ke,
+                      t.laporan_leader, t.laporan_installer, t.laporan_permasalahan,
                       t.created_at, t.diproses_at, t.selesai_at
                FROM tiket_kerusakan t
                JOIN mesin m ON m.id = t.mesin_id
                JOIN users u ON u.id = t.operator_id
-               LEFT JOIN users tk ON tk.id = t.teknisi_id`;
+               LEFT JOIN users tk ON tk.id = t.teknisi_id
+               LEFT JOIN users mk ON mk.id = t.ditugaskan_ke`;
     if (req.query.status === "aktif") sql += " WHERE t.status <> 'selesai'";
     sql += " ORDER BY t.created_at DESC, t.id DESC";
 
@@ -138,15 +156,20 @@ router.get("/:id", verifyToken, async (req, res) => {
 
   try {
     const [tiket] = await db.query(
-      `SELECT t.id, t.mesin_id, m.nama AS mesin, t.keluhan, t.status,
+      `SELECT t.id, t.mesin_id, m.nama AS mesin, m.lokasi, m.divisi,
+              t.keluhan, t.status,
               t.jenis_tiket, t.pm_jadwal_id, t.jatuh_tempo,
               t.operator_id, u.nama AS operator,
-              t.teknisi_id, tk.nama AS teknisi,
+              COALESCE(t.teknisi_id, t.ditugaskan_ke) AS teknisi_id,
+              COALESCE(tk.nama, mk.nama) AS teknisi,
+              t.ditugaskan_ke,
+              t.laporan_leader, t.laporan_installer, t.laporan_permasalahan,
               t.created_at, t.diproses_at, t.selesai_at
        FROM tiket_kerusakan t
        JOIN mesin m ON m.id = t.mesin_id
        JOIN users u ON u.id = t.operator_id
        LEFT JOIN users tk ON tk.id = t.teknisi_id
+       LEFT JOIN users mk ON mk.id = t.ditugaskan_ke
        WHERE t.id = ?`,
       [id]
     );
@@ -198,9 +221,10 @@ router.patch("/:id/terima", verifyToken, requireRole(...TEKNISI), (req, res) => 
   });
 });
 
-// POST /tiket/:id/part -> teknisi memakai spare part
+// POST /tiket/:id/part -> teknisi/mekanik memakai spare part
 // Body: { "part_id": 1, "qty": 2 } (teknisi_id dari token)
-// Stok cukup: stok berkurang, tiket tetap diproses.
+// Berlaku untuk tiket diproses (alur lama) dan diproses_maintenance (alur TTD Surat).
+// Stok cukup: stok berkurang, status tiket tidak berubah.
 // Stok kurang: stok tidak berubah, permintaan dicatat, tiket jadi menunggu_approval.
 router.post("/:id/part", verifyToken, requireRole(...TEKNISI), (req, res) => {
   const id = angka(req.params.id);
@@ -215,10 +239,10 @@ router.post("/:id/part", verifyToken, requireRole(...TEKNISI), (req, res) => {
     res,
     async (conn) => {
       const tiket = await kunciTiket(conn, id);
-      if (tiket.status !== "diproses") {
-        throw tolak(409, `Tiket berstatus ${tiket.status}, part hanya bisa dipakai pada tiket diproses`);
+      if (!STATUS_DIKERJAKAN.includes(tiket.status)) {
+        throw tolak(409, `Tiket berstatus ${tiket.status}, part hanya bisa dipakai pada tiket yang sedang dikerjakan`);
       }
-      if (tiket.teknisi_id !== teknisiId) {
+      if (!milikUser(tiket, teknisiId)) {
         throw tolak(403, "Tiket ini ditangani teknisi lain");
       }
 
@@ -239,7 +263,7 @@ router.post("/:id/part", verifyToken, requireRole(...TEKNISI), (req, res) => {
           part: part[0].nama,
           qty,
           status_part: "dipakai",
-          status_tiket: "diproses",
+          status_tiket: tiket.status,
           stok_sisa: part[0].stok - qty,
         };
       }
@@ -288,8 +312,10 @@ router.patch("/:id/setujui", verifyToken, requireRole(...SUPERVISOR), (req, res)
   });
 });
 
-// PATCH /tiket/:id/lanjut -> teknisi melanjutkan setelah stok ditambah
-// teknisi_id diambil dari token
+// PATCH /tiket/:id/lanjut -> teknisi/mekanik melanjutkan setelah stok ditambah
+// teknisi_id diambil dari token.
+// Tiket alur TTD Surat (ditugaskan_ke terisi) kembali ke diproses_maintenance,
+// tiket alur lama kembali ke diproses.
 router.patch("/:id/lanjut", verifyToken, requireRole(...TEKNISI), (req, res) => {
   const id = angka(req.params.id);
   const teknisiId = req.user.id;
@@ -302,7 +328,7 @@ router.patch("/:id/lanjut", verifyToken, requireRole(...TEKNISI), (req, res) => 
     if (tiket.status !== "menunggu_approval") {
       throw tolak(409, `Tiket berstatus ${tiket.status}, hanya tiket menunggu_approval yang bisa dilanjutkan`);
     }
-    if (tiket.teknisi_id !== teknisiId) {
+    if (!milikUser(tiket, teknisiId)) {
       throw tolak(403, "Tiket ini ditangani teknisi lain");
     }
 
@@ -341,14 +367,16 @@ router.patch("/:id/lanjut", verifyToken, requireRole(...TEKNISI), (req, res) => 
       "UPDATE tiket_part SET status = 'dipakai' WHERE tiket_id = ? AND status = 'disetujui'",
       [id]
     );
-    await conn.query("UPDATE tiket_kerusakan SET status = 'diproses' WHERE id = ?", [id]);
 
-    return { id, status: "diproses" };
+    const statusKembali = tiket.ditugaskan_ke ? "diproses_maintenance" : "diproses";
+    await conn.query("UPDATE tiket_kerusakan SET status = ? WHERE id = ?", [statusKembali, id]);
+
+    return { id, status: statusKembali };
   });
 });
 
-// PATCH /tiket/:id/selesai -> teknisi menyelesaikan perbaikan (diproses -> selesai)
-// teknisi_id diambil dari token
+// PATCH /tiket/:id/selesai -> teknisi/mekanik menyelesaikan perbaikan
+// (diproses atau diproses_maintenance -> selesai). teknisi_id diambil dari token.
 router.patch("/:id/selesai", verifyToken, requireRole(...TEKNISI), (req, res) => {
   const id = angka(req.params.id);
   const teknisiId = req.user.id;
@@ -358,10 +386,10 @@ router.patch("/:id/selesai", verifyToken, requireRole(...TEKNISI), (req, res) =>
 
   transaksi(res, async (conn) => {
     const tiket = await kunciTiket(conn, id);
-    if (tiket.status !== "diproses") {
-      throw tolak(409, `Tiket berstatus ${tiket.status}, hanya tiket diproses yang bisa diselesaikan`);
+    if (!STATUS_DIKERJAKAN.includes(tiket.status)) {
+      throw tolak(409, `Tiket berstatus ${tiket.status}, hanya tiket yang sedang dikerjakan yang bisa diselesaikan`);
     }
-    if (tiket.teknisi_id !== teknisiId) {
+    if (!milikUser(tiket, teknisiId)) {
       throw tolak(403, "Tiket ini ditangani teknisi lain");
     }
 

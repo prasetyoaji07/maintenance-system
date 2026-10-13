@@ -1,4 +1,4 @@
-export type Role = 'operator' | 'teknisi' | 'supervisor' | 'leader_divisi' | 'installer_divisi' | 'foreman_divisi' | 'spv_divisi' | 'mekanik_mtnc' | 'spv_mtnc' 
+export type Role = 'operator' | 'teknisi' | 'supervisor' | 'leader_divisi' | 'installer_divisi' | 'foreman_divisi' | 'spv_divisi' | 'mekanik_mtnc' | 'spv_mtnc'
 
 export interface User {
   id: number
@@ -26,6 +26,7 @@ export interface SparePart {
 export type StatusTiket =
   | 'pending'
   | 'diproses'
+  | 'diproses_maintenance'
   | 'menunggu_approval'
   | 'selesai'
 
@@ -33,11 +34,17 @@ export interface Tiket {
   id: number
   mesin_id: number
   mesin: string
+  lokasi?: string
+  divisi?: string
   keluhan: string
   status: StatusTiket
   operator: string
   teknisi_id: number | null
   teknisi: string | null
+  ditugaskan_ke?: number | null
+  laporan_leader?: string | null
+  laporan_installer?: string | null
+  laporan_permasalahan?: string | null
   created_at: string
   diproses_at: string | null
   selesai_at: string | null

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import { ambil, kirim } from '../api'
 import type { Mesin, User } from '../types'
@@ -21,8 +22,10 @@ function LaporKerusakan({ user, mesinAwal = null }: Props) {
     ambil<Mesin[]>('/mesin')
       .then((data) => {
         setMesin(data)
+
         if (mesinAwal) {
           const m = data.find((x) => String(x.id) === mesinAwal)
+
           if (m) {
             setLine(m.lokasi)
             setMesinId(String(m.id))
@@ -47,17 +50,26 @@ function LaporKerusakan({ user, mesinAwal = null }: Props) {
     setSukses('')
     setError('')
     setInfo('')
+
     if (!line || !mesinId || !keluhan.trim()) {
       setError('Pilih line, mesin, dan isi keluhan dulu.')
       return
     }
+
     setMengirim(true)
+
+    const endpoint =
+      user.role === 'leader_divisi'
+        ? '/tiket/alur-divisi/lapor'
+        : '/tiket'
+
     try {
-      const hasil = await kirim<{ id: number }>('/tiket', 'POST', {
+      const hasil = await kirim<{ id: number }>(endpoint, 'POST', {
         mesin_id: Number(mesinId),
         operator_id: user.id,
-        keluhan,
+        keluhan: keluhan.trim(),
       })
+
       setSukses(`Laporan terkirim. Nomor tiket: #${hasil.id}`)
       setLine('')
       setMesinId('')
@@ -76,7 +88,9 @@ function LaporKerusakan({ user, mesinAwal = null }: Props) {
       <p className="mt-1 text-sm text-slate-500">Pelapor: {user.nama}</p>
 
       {info && (
-        <p className="mt-4 rounded-lg bg-blue-100 p-3 text-sm text-blue-800">{info}</p>
+        <p className="mt-4 rounded-lg bg-blue-100 p-3 text-sm text-blue-800">
+          {info}
+        </p>
       )}
 
       <label className="mt-4 block text-sm font-medium text-slate-700">
@@ -134,10 +148,15 @@ function LaporKerusakan({ user, mesinAwal = null }: Props) {
       </button>
 
       {sukses && (
-        <p className="mt-4 rounded-lg bg-green-100 p-3 text-green-800">{sukses}</p>
+        <p className="mt-4 rounded-lg bg-green-100 p-3 text-green-800">
+          {sukses}
+        </p>
       )}
+
       {error && (
-        <p className="mt-4 rounded-lg bg-red-100 p-3 text-red-700">{error}</p>
+        <p className="mt-4 rounded-lg bg-red-100 p-3 text-red-700">
+          {error}
+        </p>
       )}
     </div>
   )

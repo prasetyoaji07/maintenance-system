@@ -10,8 +10,17 @@ interface Props {
 const WARNA: Record<StatusTiket, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   diproses: 'bg-blue-100 text-blue-800',
+  diproses_maintenance: 'bg-blue-100 text-blue-800',
   menunggu_approval: 'bg-orange-100 text-orange-800',
   selesai: 'bg-green-100 text-green-800',
+}
+
+const LABEL: Record<StatusTiket, string> = {
+  pending: 'pending',
+  diproses: 'diproses',
+  diproses_maintenance: 'Diproses Maintenance',
+  menunggu_approval: 'menunggu_approval',
+  selesai: 'selesai',
 }
 
 const INTERVAL_MS = 6000
@@ -44,6 +53,52 @@ function bunyi(ctx: AudioContext | null) {
     const mulai = ctx.currentTime + i * 0.6
     osc.start(mulai)
     osc.stop(mulai + 0.4)
+  }
+}
+
+// Menentukan apakah tombol Lanjut boleh aktif.
+// Syarat: semua permintaan part sudah disetujui dan stok semua part cukup.
+function cekLanjut(
+  t: TiketDetail,
+  daftarPart: SparePart[]
+): { bisa: boolean; pesan: string } {
+  const antrean = t.parts.filter((p) => p.status !== 'dipakai')
+
+  if (antrean.some((p) => p.status === 'menunggu_approval')) {
+    return {
+      bisa: false,
+      pesan: 'Menunggu supervisor menyetujui permintaan part.',
+    }
+  }
+
+  // Total kebutuhan per part (satu part bisa diminta lebih dari sekali)
+  const butuh = new Map<number, { nama: string; jumlah: number }>()
+  for (const p of antrean) {
+    const lama = butuh.get(p.part_id)
+    butuh.set(p.part_id, {
+      nama: p.part,
+      jumlah: (lama?.jumlah ?? 0) + p.qty_dipakai,
+    })
+  }
+
+  const kurang: string[] = []
+  for (const [partId, { nama, jumlah }] of butuh) {
+    const stok = daftarPart.find((x) => x.id === partId)?.stok ?? 0
+    if (stok < jumlah) {
+      kurang.push(`${nama} (stok ${stok}, butuh ${jumlah})`)
+    }
+  }
+
+  if (kurang.length > 0) {
+    return {
+      bisa: false,
+      pesan: `Stok belum cukup: ${kurang.join(', ')}. Menunggu SPV menambah stok.`,
+    }
+  }
+
+  return {
+    bisa: true,
+    pesan: 'Part disetujui dan stok sudah cukup. Silakan tekan Lanjut.',
   }
 }
 
@@ -191,9 +246,20 @@ function TiketSaya({ user }: Props) {
   }
 
   function selesai(t: TiketDetail) {
+    const dariTtd = t.status === 'diproses_maintenance'
+    if (
+      dariTtd &&
+      !window.confirm(
+        `Selesaikan maintenance tiket #${t.id} untuk mesin ${t.mesin}? Pastikan perbaikan sudah selesai.`
+      )
+    ) {
+      return
+    }
     void jalankan(async () => {
       await kirim(`/tiket/${t.id}/selesai`, 'PATCH', { teknisi_id: user.id })
-      return `Tiket #${t.id} selesai.`
+      return dariTtd
+        ? `Maintenance tiket #${t.id} berhasil diselesaikan.`
+        : `Tiket #${t.id} selesai.`
     })
   }
 
@@ -203,7 +269,7 @@ function TiketSaya({ user }: Props) {
         <h2 className="text-lg font-semibold text-slate-800">
           Tiket Saya ({user.nama})
         </h2>
-          {aktif ? null : (
+        {aktif ? null : (
           <button
             onClick={() => void aktifkanNotifikasi()}
             className="rounded-lg bg-yellow-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-yellow-600"
@@ -240,34 +306,91 @@ function TiketSaya({ user }: Props) {
 
       {tiket.map((t) => {
         const milik = t.teknisi_id === user.id
+        const dikerjakan =
+          t.status === 'diproses' || t.status === 'diproses_maintenance'
+        const dariTtd = t.status === 'diproses_maintenance' || !!t.ditugaskan_ke
+        const lanjutInfo =
+          t.status === 'menunggu_approval' ? cekLanjut(t, parts) : null
         return (
-          <div key={t.id} className="rounded-xl bg-white p-6 shadow">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-slate-800">
-                #{t.id} - {t.mesin}
-                {t.jenis_tiket === 'pm' && (
-                  <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-800">
-                    PM
-                  </span>
+          <div
+            key={t.id}
+            className={
+              'rounded-xl bg-white p-6 shadow ' +
+              (dariTtd ? 'border border-blue-200' : '')
+            }
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                {dariTtd && (
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    Maintenance dari TTD Surat
+                  </p>
                 )}
-              </h3>
+                <h3 className="font-semibold text-slate-800">
+                  #{t.id} - {t.mesin}
+                  {t.jenis_tiket === 'pm' && (
+                    <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-800">
+                      PM
+                    </span>
+                  )}
+                </h3>
+                {dariTtd && t.divisi && (
+                  <p className="text-sm text-slate-500">
+                    Divisi {t.divisi} · {t.lokasi}
+                  </p>
+                )}
+              </div>
               <span
                 className={
                   'rounded-full px-3 py-1 text-xs font-semibold ' +
-                  WARNA[t.status]
+                  (WARNA[t.status] ?? 'bg-slate-100 text-slate-700')
                 }
               >
-                {t.status}
+                {LABEL[t.status] ?? t.status}
               </span>
             </div>
-            <p className="mt-2 text-slate-700">{t.keluhan}</p>
-            <p className="mt-1 text-sm text-slate-500">
-             {t.jenis_tiket === 'pm' ? 'Dijadwalkan oleh' : 'Dilapor'} {t.operator} pada {waktu(t.created_at)}
-            </p>
-            <p className="text-sm text-slate-500">
-              Teknisi: {t.teknisi ?? '-'} | Mulai diproses:{' '}
-              {waktu(t.diproses_at)}
-            </p>
+
+            {dariTtd ? (
+              <div className="mt-3 space-y-2 text-sm text-slate-700">
+                <p>
+                  <span className="font-semibold">Keluhan awal:</span>{' '}
+                  {t.keluhan}
+                </p>
+                {t.laporan_leader && (
+                  <p>
+                    <span className="font-semibold">Laporan Leader:</span>{' '}
+                    {t.laporan_leader}
+                  </p>
+                )}
+                {t.laporan_installer && (
+                  <p>
+                    <span className="font-semibold">Laporan Installer:</span>{' '}
+                    {t.laporan_installer}
+                  </p>
+                )}
+                {t.laporan_permasalahan && (
+                  <p>
+                    <span className="font-semibold">Laporan Permasalahan:</span>{' '}
+                    {t.laporan_permasalahan}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">
+                  Ditugaskan untuk maintenance pada {waktu(t.diproses_at)}
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="mt-2 text-slate-700">{t.keluhan}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {t.jenis_tiket === 'pm' ? 'Dijadwalkan oleh' : 'Dilapor'}{' '}
+                  {t.operator} pada {waktu(t.created_at)}
+                </p>
+                <p className="text-sm text-slate-500">
+                  Teknisi: {t.teknisi ?? '-'} | Mulai diproses:{' '}
+                  {waktu(t.diproses_at)}
+                </p>
+              </>
+            )}
 
             {t.parts.length > 0 && (
               <ul className="mt-3 list-disc pl-5 text-sm text-slate-700">
@@ -290,7 +413,7 @@ function TiketSaya({ user }: Props) {
                 </button>
               )}
 
-              {t.status === 'diproses' && milik && (
+              {dikerjakan && milik && (
                 <>
                   <PartPicker
                     key={`part-${t.id}-${resetPart}`}
@@ -325,22 +448,27 @@ function TiketSaya({ user }: Props) {
                     disabled={sibuk}
                     className="rounded-lg bg-green-600 px-4 py-2 font-semibold text-white hover:bg-green-700 disabled:bg-slate-400"
                   >
-                    Selesai
+                    {dariTtd ? 'Selesaikan Maintenance' : 'Selesai'}
                   </button>
                 </>
               )}
 
-              {t.status === 'menunggu_approval' && milik && (
+              {t.status === 'menunggu_approval' && milik && lanjutInfo && (
                 <>
                   <button
                     onClick={() => lanjut(t)}
-                    disabled={sibuk}
-                    className="rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white hover:bg-orange-700 disabled:bg-slate-400"
+                    disabled={sibuk || !lanjutInfo.bisa}
+                    className="rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                   >
                     Lanjut
                   </button>
-                  <p className="text-sm text-slate-500">
-                    Menunggu supervisor menyetujui part dan stok ditambah.
+                  <p
+                    className={
+                      'text-sm ' +
+                      (lanjutInfo.bisa ? 'text-green-700' : 'text-slate-500')
+                    }
+                  >
+                    {lanjutInfo.pesan}
                   </p>
                 </>
               )}
